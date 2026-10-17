@@ -81,6 +81,27 @@ export function Icon({ name, size = 18, color = 'currentColor', className = '', 
         <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 3.5z" />
       </svg>
     ),
+    earthquake: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+        <path d="M2 12h5l2-4 3 8 3-6 2 4 2-2h3" />
+        <path d="M5 19l4-3 3 2 4-4 4 3" strokeDasharray="2 2" />
+      </svg>
+    ),
+    landslide: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+        <path d="m3 21 8-14 5 7 5-3" />
+        <circle cx="16" cy="7" r="1.5" fill={color} />
+        <circle cx="19" cy="11" r="1.5" fill={color} />
+        <circle cx="13" cy="12" r="1.5" fill={color} />
+      </svg>
+    ),
+    trapped: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+        <circle cx="12" cy="8" r="3" />
+        <path d="M8 21v-3a4 4 0 0 1 8 0v3" />
+        <rect x="3" y="3" width="18" height="18" rx="2" strokeDasharray="3 3" />
+      </svg>
+    ),
     // Status & Actions
     check: (
       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>

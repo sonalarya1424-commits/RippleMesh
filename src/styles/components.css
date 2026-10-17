@@ -730,6 +730,19 @@
   box-shadow: var(--shadow-md);
 }
 
+.demo-disclaimer-ribbon {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 1rem;
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.12) 0%, rgba(0, 229, 201, 0.08) 100%);
+  border-bottom: 1px solid rgba(245, 158, 11, 0.25);
+  font-size: 0.68rem;
+  color: var(--teal-300);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
 .empty-detail-panel {
   padding: 4rem 2rem;
   text-align: center;

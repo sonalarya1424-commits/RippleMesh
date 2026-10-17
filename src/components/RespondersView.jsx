@@ -22,15 +22,20 @@ export function RespondersView({
 
   return (
     <div className="responders-view-container">
+      <div className="demo-disclaimer-ribbon font-mono">
+        <Icon name="shieldCheck" size={13} color="var(--teal-400)" />
+        <span>SIMULATED RESPONDER FLEET // NO REAL FIELD UNITS OR LIVE DISPATCH ACTIONS</span>
+      </div>
+
       <div className="responders-header-row">
         <div>
-          <h2 className="section-heading">Active Responders & Field Units</h2>
+          <h2 className="section-heading">Disaster Rescue Units &amp; Equipment</h2>
           <p className="feed-subheading">
-            Tactical emergency teams linked via offline ad-hoc mesh radios. Telemetry received via peer relay nodes.
+            Specialized disaster extraction teams linked via simulated offline mesh radios. All statuses and telemetry are simulated locally.
           </p>
         </div>
         <div className="live-mesh-tag">
-          <span className="mesh-pulse-dot" /> {responders.length} Units Active
+          <span className="mesh-pulse-dot" /> {responders.length} Simulated Units Active
         </div>
       </div>
 
@@ -114,7 +119,7 @@ export function RespondersView({
                   onClick={() => onUpdateResponderStatus && onUpdateResponderStatus(resp.id)}
                 >
                   <Icon name="refreshCw" size={13} />
-                  Cycle Status ({resp.status === 'Available' ? 'Dispatch to En Route' : resp.status === 'En Route' ? 'Mark On Scene' : 'Mark Available'})
+                  Simulate Status Cycle ({resp.status === 'Available' ? 'Dispatch to En Route' : resp.status === 'En Route' ? 'Mark On Scene' : 'Mark Available'})
                 </button>
               </div>
             </div>

@@ -132,68 +132,149 @@ export function App() {
     );
   };
 
-  // Simulate a New Incoming Distress Burst
+  // Simulate a New Incoming Disaster Distress Burst
   const handleSimulateDistressBurst = () => {
     const nextNum = 8200 + incidents.length + 1;
     const newId = `RM-${nextNum}`;
+
+    const scenarios = [
+      {
+        hazardType: 'Flood Rescue',
+        title: `Submerged Vehicle with Entrapped Driver near Pier ${incidents.length + 2}`,
+        location: {
+          name: `Sector 1 — Coastal Highway Underpass, Point ${incidents.length}`,
+          coordinates: { x: 22 + Math.floor(Math.random() * 30), y: 30 + Math.floor(Math.random() * 20) },
+          lat: '13.0845° N',
+          lng: '80.2760° E',
+          accessNotes: 'Water level rising past hood; boat or high-axle winch rig required'
+        },
+        severity: 'Critical',
+        confidenceScore: 0.94,
+        trustScore: 0.89,
+        witnessCount: 2,
+        summary: 'Ad-hoc LoRa beacon received distress packet. Vehicle stalled in rising floodway with driver unable to open doors due to hydrostatic pressure.',
+        voiceTranscript: "\"Can anyone hear me on this channel? My truck is stuck in the floodway under the bypass, water is rising up to the windshield! Doors won't open!\"",
+        svgType: 'flood',
+        urgencyReasoning: '[SIMULATED REASONING] Critical life threat from rapid cabin inundation. Priority 1 extraction recommended.',
+        recommendedAction: 'Dispatch closest Swiftwater Rescue Unit with pneumatic glass punch and flotation ring.'
+      },
+      {
+        hazardType: 'Earthquake Collapse',
+        title: `Trapped Occupants in Collapsed Cellar Void near Market`,
+        location: {
+          name: `Sector 2 — Old Quarter Bakery Basement, Alley 4`,
+          coordinates: { x: 50 + Math.floor(Math.random() * 15), y: 20 + Math.floor(Math.random() * 15) },
+          lat: '13.0880° N',
+          lng: '80.2830° E',
+          accessNotes: 'Heavy concrete beams shifted over cellar stairwell; USAR shoring struts required'
+        },
+        severity: 'Critical',
+        confidenceScore: 0.78,
+        trustScore: 0.65,
+        witnessCount: 1, // Single witness critical rescue!
+        summary: 'Single uncorroborated packet from Bluetooth mesh peer. Two bakery workers trapped in reinforced basement after ground floor collapsed. Air supply concern.',
+        voiceTranscript: "\"We are in the flour storage cellar under the shop! Main floor collapsed overhead. We have some air but dust is thick, please dig us out!\"",
+        svgType: 'collapse',
+        urgencyReasoning: '[SIMULATED REASONING] Potential void-space asphyxiation. Decoupled triage policy ensures CRITICAL priority is retained despite single witness report.',
+        recommendedAction: 'Dispatch USAR Heavy Search Unit with acoustic probes and air injection hose.'
+      },
+      {
+        hazardType: 'Landslide Rescue',
+        title: `Mudslide Buried Passenger Van on Ridge Switchback`,
+        location: {
+          name: `Sector 3 — Mountain Pass, Mile Marker 9`,
+          coordinates: { x: 80 + Math.floor(Math.random() * 10), y: 20 + Math.floor(Math.random() * 15) },
+          lat: '13.1040° N',
+          lng: '80.3040° E',
+          accessNotes: 'Debris blocking access from both directions; aerial winch extraction or heavy bulldozer needed'
+        },
+        severity: 'Critical',
+        confidenceScore: 0.92,
+        trustScore: 0.91,
+        witnessCount: 3,
+        summary: 'Saturated hill slope slipped over highway. Passenger van carrying 6 evacuees partially crushed against cliff guardrail. Multiple lacerations and limb entrapments.',
+        voiceTranscript: "\"Landslide hit our transit van! The roof caved in on the back seats. Three passengers are trapped by debris and bleeding! We need heavy cutters!\"",
+        svgType: 'landslide',
+        urgencyReasoning: '[SIMULATED REASONING] Active structural crush and severe trauma. High risk of secondary soil movement.',
+        recommendedAction: 'Deploy Mountain Extrication Team with hydraulic cutters and trauma stabilization packs.'
+      },
+      {
+        hazardType: 'Wildfire Rescue',
+        title: `Evacuation Convoy Surrounded by Fast Brushfire Flank`,
+        location: {
+          name: `Sector 4 — Ridge Connector Road, North Spur`,
+          coordinates: { x: 70 + Math.floor(Math.random() * 15), y: 15 + Math.floor(Math.random() * 20) },
+          lat: '13.1140° N',
+          lng: '80.2920° E',
+          accessNotes: 'Smoke engulfing roadway; thermal FLIR drone guidance needed for safe convoy escort'
+        },
+        severity: 'High',
+        confidenceScore: 0.89,
+        trustScore: 0.85,
+        witnessCount: 4,
+        summary: 'Sudden wind shift pushed brushfire flank within 30m of rural evacuation road. 8 civilian vehicles unable to reverse due to fallen tree behind them.',
+        voiceTranscript: "\"Fire crossed the road behind us! A fallen pine tree is blocking reverse escape. Smoke is too thick to breathe without masks. Send water tender!\"",
+        svgType: 'fire',
+        urgencyReasoning: '[SIMULATED REASONING] Smoke inhalation and heat radiation hazard. Immediate chain-saw clearing or water fog curtain required.',
+        recommendedAction: 'Dispatch Fire Escort Tender and Chainsaw Clearing Crew to open emergency escape corridor.'
+      }
+    ];
+
+    const scenario = scenarios[incidents.length % scenarios.length];
+
     const newIncident = {
       id: newId,
-      hazardType: 'Medical Emergency',
-      title: `Submerged Vehicle with Entrapped Driver near Pier ${incidents.length + 2}`,
-      location: {
-        name: `Sector 1 — Coastal Accessway, Checkpoint ${incidents.length}`,
-        coordinates: { x: 20 + Math.floor(Math.random() * 60), y: 25 + Math.floor(Math.random() * 50) },
-        lat: '13.0845° N',
-        lng: '80.2760° E',
-        accessNotes: 'Water level rising quickly; urgent extraction requested'
-      },
-      severity: 'Critical',
-      confidenceScore: 0.93,
-      trustScore: 0.88,
-      witnessCount: 2,
+      hazardType: scenario.hazardType,
+      isSimulated: true,
+      demoNotice: 'SIMULATED INCIDENT — Injected during operator testing session.',
+      title: scenario.title,
+      location: scenario.location,
+      severity: scenario.severity,
+      confidenceScore: scenario.confidenceScore,
+      trustScore: scenario.trustScore,
+      witnessCount: scenario.witnessCount,
       status: 'Pending Review',
       reportedAt: new Date().toISOString(),
       displayTime: 'Just now',
-      summary: 'Ad-hoc LoRa beacon received distress packet. Vehicle stalled in rising floodway with driver unable to open doors due to hydrostatic pressure.',
-      voiceTranscript: "\"Can anyone hear me on this channel? My truck is stuck in the floodway under the bypass, water is rising up to the windshield! Doors won't open!\"",
+      summary: scenario.summary,
+      voiceTranscript: scenario.voiceTranscript,
       evidencePhoto: {
         type: 'synthetic_sensor',
-        caption: 'Field Telemetry — Pressure anomaly & vehicle transponder echo',
-        svgType: 'flood'
+        caption: `Simulated Telemetry Snapshot — ${scenario.hazardType} Sensor Node`,
+        svgType: scenario.svgType
       },
       aiTriage: {
         isSimulated: true,
         modelTag: 'Llama-3-Emergency-8B (Simulated Local Engine)',
-        triageScore: 97,
-        urgencyReasoning: 'Critical life threat from rapid compartment submergence. Priority 1 dispatch recommended.',
-        recommendedAction: 'Dispatch closest Swiftwater unit or aerial rescue asset immediately.',
-        meshProvenance: 'Relayed via 2 mobile citizen mesh nodes to Base Station.'
+        triageScore: scenario.severity === 'Critical' ? 96 : 85,
+        urgencyReasoning: scenario.urgencyReasoning,
+        recommendedAction: scenario.recommendedAction,
+        meshProvenance: 'Relayed via mobile mesh nodes to Base Station (Simulated).'
       },
       provenance: [
-        { time: new Date().toLocaleTimeString(), source: 'Citizen App Beacon', detail: `Distress ping burst broadcasted on LoRa 915MHz` },
-        { time: new Date().toLocaleTimeString(), source: 'Reporter Agent', detail: 'Local Whisper transcribed voice emergency' }
+        { time: new Date().toLocaleTimeString(), source: 'Citizen Mesh Beacon', detail: 'Distress burst broadcasted on LoRa 915MHz (Simulated)' },
+        { time: new Date().toLocaleTimeString(), source: 'Reporter Agent (Simulated)', detail: 'Speech transcribed by local Whisper model' }
       ],
       witnesses: [
-        { id: 'W-New1', role: 'Driver / Reporter', verified: true, method: 'Authenticated Mesh App' },
-        { id: 'W-New2', role: 'Passing Pedestrian', verified: false, method: 'BLE Hop' }
+        { id: 'W-New1', role: 'Distressed Civilian', verified: true, method: 'Authenticated Mesh App' },
+        { id: 'W-New2', role: 'Passing Scout', verified: scenario.witnessCount > 1, method: 'BLE Hop' }
       ]
     };
 
     setIncidents((prev) => [newIncident, ...prev]);
     setSelectedIncidentId(newId);
 
-    // Agent events
     const reporterEvt = {
       id: `EVT-${Date.now().toString().slice(-4)}`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       relativeTime: 'Just now',
       agent: 'Reporter',
-      agentRole: 'Distress Ingestion & Natural Language Parsing',
+      agentRole: 'Distress Ingestion & Natural Language Parsing (Simulated)',
       type: 'ingest',
       badgeColor: 'purple',
       incidentId: newId,
-      message: `Ingested new offline distress burst ${newId} from coastal sector. Decoded voice telemetry.`,
-      details: 'Extracted high water level warning & entrapment tags.',
+      message: `[SIMULATED INGESTION] Ingested new offline distress burst ${newId} (${scenario.hazardType}) via local mesh beacon.`,
+      details: `Extracted urgent rescue keywords from voice telemetry. Priority triage initiated.`,
       isSimulated: true
     };
 

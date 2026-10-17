@@ -39,7 +39,7 @@ export function Navbar({ onSimulateDistress, onResetData, currentView }) {
         {/* Local Hackathon Simulation Badge */}
         <div className="status-banner-pill demo-sim-pill" title="Running in simulated offline mode for hackathon frontend evaluation">
           <span className="sim-dot" />
-          <span className="pill-text font-mono">SIMULATION / LOCAL MODE</span>
+          <span className="pill-text font-mono">DEMO SIMULATION • NO BACKEND CONNECTED</span>
         </div>
 
         {/* Action Buttons */}

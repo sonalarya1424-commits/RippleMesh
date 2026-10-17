@@ -53,9 +53,9 @@ export function DemoMap({
         <div className="map-title-group">
           <Icon name="ripple" size={18} color="var(--teal-400)" />
           <div>
-            <h3 className="map-title">Tactical Mesh Geo-Grid</h3>
+            <h3 className="map-title">Simulated Tactical Disaster Geo-Grid</h3>
             <span className="map-label-sub font-mono">
-              DEMO ILLUSTRATIVE MAP // INDEPENDENT OF EXTERNAL TILES // OFFLINE READY
+              DEMO ILLUSTRATIVE MAP // INDEPENDENT OF EXTERNAL TILES // ALL COORDINATES &amp; TOPOLOGY ARE SIMULATED
             </span>
           </div>
         </div>
@@ -133,13 +133,13 @@ export function DemoMap({
           </g>
 
           {/* Sector Boundary Annotations */}
-          <g className="sector-labels" fill="#475569" fontSize="11" fontFamily="monospace">
-            <text x="50" y="30">SECTOR 1 // NORTH BASIN</text>
-            <text x="420" y="30">SECTOR 2 // CENTRAL METRO</text>
-            <text x="750" y="30">SECTOR 3 // EAST RIDGE</text>
-            <text x="60" y="580">SECTOR 4 // LOWER MARINA</text>
-            <text x="450" y="580">SECTOR 5 // COMM SHELTER</text>
-            <text x="750" y="580">SECTOR 6 // IND PARK</text>
+          <g className="sector-labels" fill="#475569" fontSize="10.5" fontFamily="monospace">
+            <text x="50" y="30">SECTOR 1 // FLOOD BASIN &amp; CAUSEWAY</text>
+            <text x="420" y="30">SECTOR 2 // EARTHQUAKE COLLAPSE ZONE</text>
+            <text x="730" y="30">SECTOR 3 // LANDSLIDE PASS &amp; WILDFIRE</text>
+            <text x="50" y="580">SECTOR 4 // LOWER MARINA RESCUE WHARF</text>
+            <text x="410" y="580">SECTOR 5 // SHELTER &amp; MASS CASUALTY CLINIC</text>
+            <text x="730" y="580">SECTOR 6 // HAZMAT &amp; POWER CORDON</text>
           </g>
 
           {/* Mesh Network Links (Dotted Lines) */}

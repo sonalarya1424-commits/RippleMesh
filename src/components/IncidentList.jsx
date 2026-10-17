@@ -74,12 +74,15 @@ export function IncidentList({
   const getHazardIcon = (hazard) => {
     const h = hazard?.toLowerCase() || '';
     if (h.includes('flood') || h.includes('water')) return 'flood';
-    if (h.includes('collapse') || h.includes('structural')) return 'collapse';
+    if (h.includes('earthquake')) return 'earthquake';
+    if (h.includes('landslide') || h.includes('mudslide') || h.includes('slope')) return 'landslide';
+    if (h.includes('collapse') || h.includes('rubble') || h.includes('structural')) return 'collapse';
+    if (h.includes('trapped') || h.includes('void')) return 'trapped';
     if (h.includes('gas') || h.includes('chemical')) return 'gas';
-    if (h.includes('medical') || h.includes('trauma')) return 'medical';
+    if (h.includes('medical') || h.includes('trauma') || h.includes('hospital')) return 'medical';
     if (h.includes('power') || h.includes('electric') || h.includes('grid')) return 'power';
-    if (h.includes('bridge') || h.includes('road')) return 'bridge';
-    if (h.includes('fire')) return 'fire';
+    if (h.includes('bridge') || h.includes('scour')) return 'bridge';
+    if (h.includes('fire') || h.includes('wildfire')) return 'fire';
     return 'alertTriangle';
   };
 
@@ -219,6 +222,7 @@ export function IncidentList({
                   <div className="incident-top-meta">
                     <span className="incident-id-tag">{incident.id}</span>
                     <span className="hazard-type-label">{incident.hazardType}</span>
+                    <span className="simulated-pill" title="Simulated demo incident">SIMULATED</span>
                     <SeverityBadge severity={incident.severity} />
                     <StatusBadge status={incident.status} size="sm" />
                     <span className="time-ago-tag">
@@ -235,24 +239,24 @@ export function IncidentList({
 
                   {/* Decoupled Telemetry Metrics Row */}
                   <div className="incident-metrics-grid">
-                    {/* Confidence Score */}
-                    <div className="metric-pill" title="AI confidence in parsing & extraction">
-                      <span className="metric-label">AI Conf:</span>
+                    {/* Simulated Confidence Score */}
+                    <div className="metric-pill" title="Simulated AI confidence in emergency extraction">
+                      <span className="metric-label">Sim Conf:</span>
                       <span className="metric-value font-mono">
                         {Math.round(incident.confidenceScore * 100)}%
                       </span>
                     </div>
 
-                    {/* Trust Score */}
-                    <div className="metric-pill" title="Cryptographic verification & source reputation">
-                      <span className="metric-label">Trust:</span>
+                    {/* Simulated Trust Score */}
+                    <div className="metric-pill" title="Simulated cryptographic verification & source reputation">
+                      <span className="metric-label">Sim Trust:</span>
                       <span className={`metric-value font-mono ${incident.trustScore < 0.7 ? 'text-amber' : 'text-teal'}`}>
                         {Math.round(incident.trustScore * 100)}%
                       </span>
                     </div>
 
                     {/* Witnesses */}
-                    <div className={`metric-pill ${isSingleWitnessCritical ? 'witness-warning' : ''}`} title="Independent corroborated witness reports">
+                    <div className={`metric-pill ${isSingleWitnessCritical ? 'witness-warning' : ''}`} title="Simulated independent witness reports">
                       <span className="metric-label">Witnesses:</span>
                       <span className="metric-value font-mono">
                         {incident.witnessCount} {incident.witnessCount === 1 ? 'source' : 'sources'}
@@ -260,8 +264,8 @@ export function IncidentList({
                     </div>
 
                     {isSingleWitnessCritical && (
-                      <span className="single-source-alert" title="Critical urgency retained despite single witness">
-                        <Icon name="alertTriangle" size={11} /> High Urgency / 1 Witness
+                      <span className="single-source-alert" title="Critical urgency retained despite single witness count">
+                        <Icon name="alertTriangle" size={11} /> Critical Priority Retained (1 Witness)
                       </span>
                     )}
                   </div>

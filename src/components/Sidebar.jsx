@@ -79,30 +79,30 @@ export function Sidebar({ currentView, onSelectView, pendingCount = 0 }) {
       <div className="sidebar-system-card">
         <div className="system-card-header">
           <div className="status-indicator-dot online-pulse" />
-          <span className="system-status-title font-mono">MESH LINK: AUTONOMOUS</span>
+          <span className="system-status-title font-mono">SIMULATED MESH LINK</span>
         </div>
 
         <div className="system-metrics-list font-mono text-xs">
           <div className="system-metric-row">
             <span className="text-muted">Protocol:</span>
-            <span className="text-teal">LoRa P2P + BLE</span>
+            <span className="text-teal">LoRa P2P + BLE (Mock)</span>
           </div>
           <div className="system-metric-row">
             <span className="text-muted">Repeaters:</span>
-            <span>14 active</span>
+            <span>14 active (Simulated)</span>
           </div>
           <div className="system-metric-row">
-            <span className="text-muted">Cloud Link:</span>
-            <span className="text-amber">Severed (Offline)</span>
+            <span className="text-muted">Backend / DB:</span>
+            <span className="text-amber">Unconnected (Demo)</span>
           </div>
           <div className="system-metric-row">
             <span className="text-muted">AI Runtime:</span>
-            <span className="text-teal">Local Edge Engine</span>
+            <span className="text-teal">Local Mock Engine</span>
           </div>
         </div>
 
         <div className="mesh-crypto-tag font-mono text-xs">
-          Ed25519 Verified Signatures
+          Simulated Ed25519 Signatures
         </div>
       </div>
 
