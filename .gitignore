@@ -56,3 +56,9 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+test_images/
+*.pyc
+backend/uploads/
+.env
+node_modules/
