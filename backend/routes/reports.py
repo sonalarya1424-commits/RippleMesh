@@ -3,7 +3,7 @@ import os
 import uuid
 import shutil
 from pathlib import Path
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 from backend.db.database import get_db
@@ -169,3 +169,32 @@ def get_report_status(report_id: str):
             "status": "verified",
             "message": "Your report has been verified and merged into local situation awareness."
         }
+
+from fastapi.responses import FileResponse
+from backend.services.auth import require_coordinator
+
+@router.get("/media/{report_id}")
+def get_report_media(report_id: str, session: Dict[str, Any] = Depends(require_coordinator)):
+    """Requires coordinator login. Looks up report's image_path and serves it safely from backend/uploads/."""
+    with get_db() as conn:
+        cursor = conn.execute("SELECT image_path FROM reports WHERE report_id = ?", (report_id,))
+        row = cursor.fetchone()
+        if not row or not row["image_path"]:
+            raise HTTPException(status_code=404, detail="No media attached to report")
+
+        file_path_str = row["image_path"]
+
+    # Security check: resolve path and ensure it is strictly within UPLOAD_DIR
+    target_path = Path(file_path_str).resolve()
+    upload_dir_resolved = UPLOAD_DIR.resolve()
+
+    try:
+        target_path.relative_to(upload_dir_resolved)
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Access denied: file is outside upload directory")
+
+    if not target_path.exists() or not target_path.is_file():
+        raise HTTPException(status_code=404, detail="Image file not found on disk")
+
+    return FileResponse(target_path)
+

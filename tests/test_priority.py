@@ -231,5 +231,19 @@ def test_priority_ranking():
 
         print("[OK] Test database rows cleaned up cleanly.")
 
+def test_priority_floor():
+    """Unit test that priority is never 0.0 for life_threat soon or now, even if rescuable_in_time is 0."""
+    from backend.services.scoring import priority as compute_priority
+    # Test now with rescuable_in_time 0.2 (which is the coordinator floor)
+    p_now = compute_priority(life_threat="now", time_to_harm="hours", rescuable_in_time=0.2, vulnerability=[], confidence_val=0.1)
+    assert p_now > 0.0, f"Expected priority > 0 for life_threat 'now', got {p_now}"
+
+    # Test soon with rescuable_in_time 0.2
+    p_soon = compute_priority(life_threat="soon", time_to_harm="hours", rescuable_in_time=0.2, vulnerability=[], confidence_val=0.1)
+    assert p_soon > 0.0, f"Expected priority > 0 for life_threat 'soon', got {p_soon}"
+    print("[OK] Priority floor test passed: priority is never 0.0 for soon or now.")
+
 if __name__ == "__main__":
     test_priority_ranking()
+    test_priority_floor()
+

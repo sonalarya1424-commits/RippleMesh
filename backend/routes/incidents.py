@@ -57,6 +57,32 @@ def list_incidents(include_closed: bool = False, session: Dict[str, Any] = Depen
         for r in rows:
             r["trust"] = round(float(r["trust"] or 0.7), 2)
             r["unverified"] = bool(r["unverified"])
+
+            # Fetch latest report for this incident
+            cur_rep = conn.execute(
+                """
+                SELECT r.report_id, r.transcript, r.image_path
+                FROM incident_reports ir
+                JOIN reports r ON ir.report_id = r.report_id
+                WHERE ir.incident_id = ?
+                ORDER BY r.created_at DESC
+                LIMIT 1
+                """,
+                (r["incident_id"],)
+            )
+            latest_rep_row = cur_rep.fetchone()
+            if latest_rep_row:
+                r["latest_report"] = {
+                    "report_id": latest_rep_row["report_id"],
+                    "transcript": latest_rep_row["transcript"] or "",
+                    "has_image": bool(latest_rep_row["image_path"])
+                }
+            else:
+                r["latest_report"] = {
+                    "report_id": None,
+                    "transcript": "",
+                    "has_image": False
+                }
         return rows
 
 @router.get("/{incident_id}")
@@ -87,7 +113,11 @@ def get_incident_provenance(incident_id: str, session: Dict[str, Any] = Depends(
             """,
             (incident_id,),
         )
-        reports = [dict(r) for r in cursor_reports.fetchall()]
+        reports = []
+        for row in cursor_reports.fetchall():
+            rep_dict = dict(row)
+            rep_dict["has_image"] = bool(rep_dict.get("image_path"))
+            reports.append(rep_dict)
 
         # 2. Triage records
         cursor_triage = conn.execute(

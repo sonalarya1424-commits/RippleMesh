@@ -143,6 +143,16 @@
         </div>
       </div>
     </div>
+
+    <!-- Image Lightbox Modal -->
+    <div id="lightbox-modal" class="modal-overlay hidden" onclick="closeLightbox(event)">
+      <div class="modal-card" style="max-width: 600px; text-align: center; padding: 12px; background: #000000; border: none;">
+        <div style="display:flex; justify-content:flex-end;">
+          <button class="btn-close" style="color:#ffffff; font-size:24px;" onclick="closeLightboxDirect()">✕</button>
+        </div>
+        <img id="lightbox-img" src="" alt="Enlarged photo" style="max-width: 100%; max-height: 80vh; object-fit: contain; border-radius: var(--radius-sm); margin: 8px 0;">
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>

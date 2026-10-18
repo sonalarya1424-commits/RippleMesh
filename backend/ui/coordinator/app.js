@@ -160,8 +160,78 @@ async function fetchIncidents() {
   }
 }
 
+// Cache of object URLs: key -> url, so we can revoke them when cards re-render
+let activeObjectUrls = [];
+
+function revokeAllObjectUrls() {
+  activeObjectUrls.forEach(url => URL.revokeObjectURL(url));
+  activeObjectUrls = [];
+}
+
+async function loadSecureImage(reportId, targetImgId, placeholderId) {
+  try {
+    const res = await fetch(`/media/${encodeURIComponent(reportId)}`, {
+      headers: authHeaders()
+    });
+    if (!res.ok) {
+      const pl = document.getElementById(placeholderId);
+      if (pl) pl.innerHTML = '<span class="evidence-no-img">Image failed to load</span>';
+      return;
+    }
+    const blob = await res.blob();
+    const objUrl = URL.createObjectURL(blob);
+    activeObjectUrls.push(objUrl);
+
+    const img = document.getElementById(targetImgId);
+    const pl = document.getElementById(placeholderId);
+    if (img) {
+      img.src = objUrl;
+      img.classList.remove('hidden');
+      if (pl) pl.classList.add('hidden');
+    }
+  } catch (e) {
+    const pl = document.getElementById(placeholderId);
+    if (pl) pl.innerHTML = '<span class="evidence-no-img">Image failed to load</span>';
+  }
+}
+
+function openLightbox(src) {
+  const modal = document.getElementById('lightbox-modal');
+  const img = document.getElementById('lightbox-img');
+  if (modal && img && src) {
+    img.src = src;
+    modal.classList.remove('hidden');
+  }
+}
+
+function closeLightbox(e) {
+  if (e.target.id === 'lightbox-modal') {
+    closeLightboxDirect();
+  }
+}
+
+function closeLightboxDirect() {
+  const modal = document.getElementById('lightbox-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function parseTranscript(rawTranscript) {
+  if (!rawTranscript) return { category: null, text: 'No transcript provided.' };
+  const match = rawTranscript.match(/^\[Reporter selected:\s*([^\]]+)\]\s*(.*)$/i);
+  if (match) {
+    return {
+      category: match[1].trim(),
+      text: match[2].trim() || '(No additional details provided)'
+    };
+  }
+  return { category: null, text: rawTranscript };
+}
+
 function renderIncidents(incidents) {
+  revokeAllObjectUrls();
   const container = document.getElementById('incidents-container');
+
+  const pendingImageLoads = [];
 
   const html = incidents.map((inc, index) => {
     const rank = index + 1;
@@ -174,6 +244,21 @@ function renderIncidents(incidents) {
     const trust = inc.trust !== null && inc.trust !== undefined ? Number(inc.trust).toFixed(2) : '0.70';
     const dispatchId = inc.pending_dispatch_id || '';
     const isFallbackModel = inc.model_used && (inc.model_used.includes('fallback') || inc.model_used.includes('default'));
+
+    const latestRep = inc.latest_report || {};
+    const hasImage = Boolean(latestRep.has_image && latestRep.report_id);
+    const parsed = parseTranscript(latestRep.transcript);
+
+    const thumbImgId = `thumb-img-${escapeHtml(inc.incident_id)}`;
+    const thumbPlId = `thumb-pl-${escapeHtml(inc.incident_id)}`;
+
+    if (hasImage) {
+      pendingImageLoads.push({
+        reportId: latestRep.report_id,
+        imgId: thumbImgId,
+        plId: thumbPlId
+      });
+    }
 
     return `
       <div class="incident-card" id="inc-card-${escapeHtml(inc.incident_id)}">
@@ -210,6 +295,25 @@ function renderIncidents(incidents) {
           <div class="metric-item">
             <span class="metric-label">Coordinates</span>
             <span class="metric-value text-sm">${inc.lat !== null ? inc.lat.toFixed(4) : '-'}, ${inc.lng !== null ? inc.lng.toFixed(4) : '-'}</span>
+          </div>
+        </div>
+
+        <!-- Evidence Row: Photo Thumbnail + Citizen Quote (Above Gemma Reasoning) -->
+        <div class="card-evidence-row">
+          <div class="evidence-thumb-container" onclick="openLightbox(document.getElementById('${thumbImgId}').src)">
+            ${hasImage ? `
+              <img id="${thumbImgId}" class="evidence-thumb-img hidden" alt="Evidence photo">
+              <span id="${thumbPlId}" class="evidence-no-img">Loading photo...</span>
+            ` : `
+              <span class="evidence-no-img">No photo attached</span>
+            `}
+          </div>
+          <div class="citizen-quote-box">
+            <div class="quote-header">
+              <span>Citizen said:</span>
+              ${parsed.category ? `<span class="reporter-choice-tag">${escapeHtml(parsed.category)}</span>` : ''}
+            </div>
+            <div class="quote-text">"${escapeHtml(parsed.text)}"</div>
           </div>
         </div>
 
@@ -256,6 +360,11 @@ function renderIncidents(incidents) {
   }).join('');
 
   container.innerHTML = html;
+
+  // Trigger secure image loading for thumbnails
+  pendingImageLoads.forEach(item => {
+    loadSecureImage(item.reportId, item.imgId, item.plId);
+  });
 }
 
 async function handleDispatchAction(dispatchId, action) {
@@ -364,14 +473,48 @@ async function showIncidentDetails(incidentId) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
-    let reportsHtml = (data.reports || []).map(r => `
-      <div class="report-item">
-        <div><strong>Device:</strong> ${escapeHtml(r.device_id || 'Unknown')} | <strong>Mode:</strong> ${escapeHtml(r.capture_mode || 'in_app')}</div>
-        <div><strong>Transcript:</strong> "${escapeHtml(r.transcript || 'No transcript')}"</div>
-        ${r.summary ? `<div><strong>Summary:</strong> ${escapeHtml(r.summary)}</div>` : ''}
-        <div><strong>Verification Notes:</strong> ${escapeHtml(r.verification_notes || 'Verified authentic')} (Trust: ${r.trust_score !== undefined ? Number(r.trust_score).toFixed(2) : '-'})</div>
-      </div>
-    `).join('') || '<p class="text-muted">No linked reports.</p>';
+    const modalImageLoads = [];
+
+    let reportsHtml = (data.reports || []).map((r, idx) => {
+      const modeLabel = r.capture_mode === 'in_app' ? 'Live camera' : 'Gallery upload';
+      const parsed = parseTranscript(r.transcript);
+      const repImgId = `modal-rep-img-${idx}`;
+      const repPlId = `modal-rep-pl-${idx}`;
+
+      if (r.has_image) {
+        modalImageLoads.push({
+          reportId: r.report_id,
+          imgId: repImgId,
+          plId: repPlId
+        });
+      }
+
+      return `
+        <div class="report-item">
+          <div style="display:flex; justify-content:space-between; flex-wrap:wrap; margin-bottom:6px;">
+            <span><strong>Device:</strong> ${escapeHtml(r.device_id || 'Unknown')}</span>
+            <span><strong>Time:</strong> ${escapeHtml(r.created_at || 'Just now')}</span>
+            <span class="badge badge-status">${escapeHtml(modeLabel)}</span>
+          </div>
+          <div>
+            <strong>Citizen's Words:</strong>
+            ${parsed.category ? `<span class="reporter-choice-tag">${escapeHtml(parsed.category)}</span> ` : ''}
+            "${escapeHtml(parsed.text)}"
+          </div>
+          ${r.summary ? `<div class="text-sm text-muted" style="margin-top:4px;"><strong>Summary:</strong> ${escapeHtml(r.summary)}</div>` : ''}
+          <div class="text-sm" style="margin-top:4px;"><strong>Verification Notes:</strong> ${escapeHtml(r.verification_notes || 'Verified authentic')} (Trust: ${r.trust_score !== undefined ? Number(r.trust_score).toFixed(2) : '-'})</div>
+
+          <div style="margin-top: 8px;">
+            ${r.has_image ? `
+              <img id="${repImgId}" class="modal-photo hidden" alt="Report photo" onclick="openLightbox(this.src)">
+              <span id="${repPlId}" class="evidence-no-img">Loading photo...</span>
+            ` : `
+              <span class="text-sm text-muted">No photo attached</span>
+            `}
+          </div>
+        </div>
+      `;
+    }).join('') || '<p class="text-muted">No linked reports.</p>';
 
     let triageHtml = (data.triage || []).map(t => `
       <div class="report-item">
@@ -399,6 +542,11 @@ async function showIncidentDetails(incidentId) {
       <div class="section-title">Field Dispatches</div>
       ${dispatchHtml}
     `;
+
+    // Trigger secure image loading for modal report photos
+    modalImageLoads.forEach(item => {
+      loadSecureImage(item.reportId, item.imgId, item.plId);
+    });
   } catch (err) {
     body.innerHTML = `<div class="empty-state" style="color:var(--danger)">Failed to load details: ${escapeHtml(err.message)}</div>`;
   }

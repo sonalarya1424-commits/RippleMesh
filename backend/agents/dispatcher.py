@@ -24,18 +24,34 @@ def _haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     )
     return R * 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
 
-# Mapping from Gemma responder_type to DB responders type substrings
+# Ordered responder types by hazard
+HAZARD_RESPONDERS = {
+    "flood": ["ndrf", "volunteer"],
+    "fire": ["fire", "ambulance"],
+    "landslide": ["ndrf_land", "pwd", "ambulance"],
+    "earthquake": ["ndrf_land", "fire", "ambulance"],
+    "other": ["volunteer", "ambulance"]
+}
+
+# Mapping from responder_type to DB responders type substrings
 TYPE_MAP = {
     "fire": ["fire", "fire_station"],
-    "ndrf": ["ndrf", "boat", "boat_team"],
+    "ndrf": ["boat", "boat_team"],       # Boat team exclusively for flood
+    "ndrf_land": ["ndrf_land", "search and rescue"], # Land team
     "ambulance": ["ambulance", "medical", "ems"],
     "pwd": ["pwd", "pwd_unit", "drainage"],
     "police": ["police", "law"],
-    "volunteer": ["volunteer", "citizen"]
+    "volunteer": ["volunteer", "civil defence", "citizen"]
 }
 
-def find_nearest_responder(incident_lat: Optional[float], incident_lng: Optional[float], responder_type: str) -> Optional[Dict[str, Any]]:
-    """Finds the closest available responder unit matching the given type."""
+def find_nearest_responder_of_types(
+    incident_lat: Optional[float],
+    incident_lng: Optional[float],
+    allowed_types: List[str]
+) -> Optional[Dict[str, Any]]:
+    """Finds the nearest AVAILABLE unit of the first type in the hazard's list that exists.
+    NEVER picks the boat team (type ndrf) unless allowed_types explicitly permits it.
+    """
     with get_db() as conn:
         cursor = conn.execute("SELECT * FROM responders WHERE available = 1")
         all_responders = [dict(r) for r in cursor.fetchall()]
@@ -43,29 +59,59 @@ def find_nearest_responder(incident_lat: Optional[float], incident_lng: Optional
     if not all_responders:
         return None
 
-    # Match responder type candidates
-    candidate_types = TYPE_MAP.get(responder_type.lower(), [responder_type.lower()])
-    matched = [
-        r for r in all_responders
-        if any(ct in r.get("type", "").lower() for ct in candidate_types)
-    ]
-
-    # If no specific type matches, consider all available responders
-    pool = matched if matched else all_responders
-
-    if incident_lat is None or incident_lng is None:
-        return pool[0]
-
-    # Sort by distance
     def _dist(r):
         r_lat = r.get("lat")
         r_lng = r.get("lng")
-        if r_lat is not None and r_lng is not None:
+        if r_lat is not None and r_lng is not None and incident_lat is not None and incident_lng is not None:
             return _haversine_m(incident_lat, incident_lng, r_lat, r_lng)
         return float("inf")
 
-    pool.sort(key=_dist)
-    return pool[0]
+    # Try in order of allowed_types
+    for t in allowed_types:
+        candidate_subtypes = TYPE_MAP.get(t.lower(), [t.lower()])
+        matching = [
+            r for r in all_responders
+            if any(sub in r.get("type", "").lower() for sub in candidate_subtypes)
+        ]
+        if matching:
+            matching.sort(key=_dist)
+            return matching[0]
+
+    # Fallback to any available responder EXCEPT boat team if boat team not in allowed_types
+    fallback_pool = [
+        r for r in all_responders
+        if "ndrf" in allowed_types or not any(b in r.get("type", "").lower() for b in ["boat", "boat_team"])
+    ]
+    if fallback_pool:
+        fallback_pool.sort(key=_dist)
+        return fallback_pool[0]
+
+    all_responders.sort(key=_dist)
+    return all_responders[0]
+
+def find_nearest_ambulance(incident_lat: Optional[float], incident_lng: Optional[float]) -> Optional[Dict[str, Any]]:
+    """Finds nearest available ambulance."""
+    with get_db() as conn:
+        cursor = conn.execute("SELECT * FROM responders WHERE available = 1")
+        all_responders = [dict(r) for r in cursor.fetchall()]
+
+    amb_types = TYPE_MAP.get("ambulance", ["ambulance"])
+    ambs = [
+        r for r in all_responders
+        if any(sub in r.get("type", "").lower() for sub in amb_types)
+    ]
+    if not ambs:
+        return None
+
+    def _dist(r):
+        r_lat = r.get("lat")
+        r_lng = r.get("lng")
+        if r_lat is not None and r_lng is not None and incident_lat is not None and incident_lng is not None:
+            return _haversine_m(incident_lat, incident_lng, r_lat, r_lng)
+        return float("inf")
+
+    ambs.sort(key=_dist)
+    return ambs[0]
 
 def build_task_card(incident_id: str) -> Dict[str, Any]:
     """Constructs a tactical task card for an incident."""
@@ -79,6 +125,19 @@ def build_task_card(incident_id: str) -> Dict[str, Any]:
         cursor_tri = conn.execute("SELECT * FROM triage WHERE incident_id = ? ORDER BY created_at DESC", (incident_id,))
         tri_row = cursor_tri.fetchone()
         triage_data = dict(tri_row) if tri_row else {}
+
+        # Fetch linked reports to inspect transcripts, people_at_risk, etc.
+        cursor_reps = conn.execute(
+            """
+            SELECT r.transcript, r.people_at_risk, r.vulnerable, v.trust_score, v.notes
+            FROM incident_reports ir
+            JOIN reports r ON ir.report_id = r.report_id
+            LEFT JOIN verifications v ON r.report_id = v.report_id
+            WHERE ir.incident_id = ?
+            """,
+            (incident_id,)
+        )
+        report_rows = [dict(r) for r in cursor_reps.fetchall()]
 
         # Calculate average trust from linked verifications
         cursor_trust = conn.execute(
@@ -97,16 +156,70 @@ def build_task_card(incident_id: str) -> Dict[str, Any]:
     lat = incident.get("lat")
     lng = incident.get("lng")
     maps_link = f"https://www.google.com/maps?q={lat},{lng}" if lat is not None and lng is not None else None
+    hazard = str(incident.get("hazard_type", "other")).lower()
 
-    req_type = triage_data.get("responder_type", "ndrf")
-    nearest_resp = find_nearest_responder(lat, lng, req_type)
+    allowed_types = HAZARD_RESPONDERS.get(hazard, HAZARD_RESPONDERS["other"])
+    req_type = str(triage_data.get("responder_type", allowed_types[0])).lower()
+
+    gemma_reasoning = triage_data.get("reasoning", "Emergency intervention requested.")
+
+    # Rule: If the Coordinator suggested a type that is not in the hazard's list,
+    # override it and append " (responder adjusted for <hazard>)" to the reasoning.
+    if req_type not in allowed_types:
+        adj_note = f" (responder adjusted for {hazard})"
+        if adj_note not in gemma_reasoning:
+            gemma_reasoning += adj_note
+            # Update triage record in DB with the updated reasoning
+            if triage_data.get("triage_id"):
+                with get_db() as conn:
+                    conn.execute(
+                        "UPDATE triage SET reasoning = ? WHERE triage_id = ?",
+                        (gemma_reasoning, triage_data["triage_id"])
+                    )
+
+    # Choose responder: nearest available unit of the first type in hazard's list that exists
+    nearest_resp = find_nearest_responder_of_types(lat, lng, allowed_types)
+
+    # Check if people_at_risk or transcript mentions a person or injury
+    has_person_or_injury = False
+    for r in report_rows:
+        if bool(r.get("people_at_risk")):
+            has_person_or_injury = True
+            break
+        trans = (r.get("transcript") or "").lower()
+        if any(w in trans for w in ["person", "people", "man", "woman", "child", "kid", "baby", "elderly", "old", "injured", "hurt", "casualty", "victim", "wound", "trapped"]):
+            has_person_or_injury = True
+            break
+
+    suggested_responders = []
+    if nearest_resp:
+        suggested_responders.append({
+            "responder_id": nearest_resp.get("responder_id"),
+            "name": nearest_resp.get("name"),
+            "type": nearest_resp.get("type"),
+            "contact": nearest_resp.get("contact"),
+            "role": "primary"
+        })
+
+    # Rule: If people_at_risk or the transcript mentions a person or injury,
+    # also add an ambulance as a second suggested responder in the task card.
+    if has_person_or_injury:
+        amb = find_nearest_ambulance(lat, lng)
+        if amb and (not nearest_resp or amb.get("responder_id") != nearest_resp.get("responder_id")):
+            suggested_responders.append({
+                "responder_id": amb.get("responder_id"),
+                "name": amb.get("name"),
+                "type": amb.get("type"),
+                "contact": amb.get("contact"),
+                "role": "medical_support"
+            })
 
     card = {
         "incident_id": incident_id,
-        "hazard": incident.get("hazard_type", "unknown"),
+        "hazard": hazard,
         "location": {"lat": lat, "lng": lng},
         "maps_link": maps_link,
-        "gemma_reasoning": triage_data.get("reasoning", "Emergency intervention requested."),
+        "gemma_reasoning": gemma_reasoning,
         "life_threat": triage_data.get("life_threat", "soon"),
         "time_to_harm": triage_data.get("time_to_harm", "minutes"),
         "confidence": incident.get("confidence", 0.5),
@@ -115,9 +228,10 @@ def build_task_card(incident_id: str) -> Dict[str, Any]:
         "nearest_responder": {
             "responder_id": nearest_resp.get("responder_id") if nearest_resp else "resp-default",
             "name": nearest_resp.get("name") if nearest_resp else "Field Response Team",
-            "type": nearest_resp.get("type") if nearest_resp else req_type,
+            "type": nearest_resp.get("type") if nearest_resp else allowed_types[0],
             "contact": nearest_resp.get("contact") if nearest_resp else None
-        }
+        },
+        "suggested_responders": suggested_responders
     }
     return card
 

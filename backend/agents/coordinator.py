@@ -285,6 +285,9 @@ def triage(incident_id: str) -> Dict[str, Any]:
         except (ValueError, TypeError):
             rescuable_in_time = 0.5
 
+        # A model-returned 0 must never erase an incident from the ranking.
+        rescuable_in_time = max(rescuable_in_time, 0.2)
+
         raw_resp = str(raw_ai.get("responder_type", "")).lower().strip()
         resp_map = {
             "fire": "fire", "firefighters": "fire", "fire_station": "fire",
