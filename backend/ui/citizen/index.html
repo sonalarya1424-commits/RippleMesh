@@ -5,67 +5,239 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Citizen Emergency Portal - RippleMesh</title>
   <link rel="stylesheet" href="/ui-static/style.css">
+  <style>
+    .emergency-banner {
+      background: var(--danger-light);
+      border: 1px solid #fca5a5;
+      color: #991b1b;
+      padding: 12px 16px;
+      border-radius: var(--radius-md);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-weight: 600;
+    }
+    .emergency-banner a {
+      background: var(--danger);
+      color: #ffffff;
+      padding: 6px 14px;
+      border-radius: var(--radius-sm);
+      text-decoration: none;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .emoji-group {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .btn-emoji {
+      background: #ffffff;
+      border: 2px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 12px 10px;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-main);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+      touch-action: manipulation;
+    }
+    .btn-emoji span.emoji {
+      font-size: 26px;
+    }
+    .btn-emoji:hover {
+      border-color: var(--primary);
+      background: var(--primary-light);
+    }
+    .btn-emoji.selected {
+      border-color: var(--primary);
+      background: var(--primary-light);
+      color: var(--primary);
+      box-shadow: 0 0 0 2px var(--primary);
+    }
+    .location-card {
+      background: #f8fafc;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .photo-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    @media (max-width: 500px) {
+      .photo-actions {
+        grid-template-columns: 1fr;
+      }
+    }
+    .btn-photo {
+      background: #ffffff;
+      border: 2px dashed var(--primary);
+      color: var(--primary);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      text-align: center;
+      transition: background 0.15s ease;
+    }
+    .btn-photo:hover {
+      background: var(--primary-light);
+    }
+    .advanced-toggle {
+      font-size: 13px;
+      color: var(--text-muted);
+      cursor: pointer;
+      margin-top: 10px;
+      display: inline-block;
+      user-select: none;
+    }
+  </style>
 </head>
 <body>
+  <div id="mock-banner" class="mock-banner hidden">
+    DEMO DATA MODE. The AI model is NOT running. Results are fake.
+  </div>
+
   <header class="app-header">
     <div class="header-brand">
-      <div class="brand-logo">📢</div>
+      <div class="brand-logo">🚨</div>
       <div>
-        <h1>Citizen Portal</h1>
-        <p class="tagline">Submit emergency hazard observation</p>
+        <h1>Citizen Emergency Report</h1>
+        <p class="tagline">Immediate local situation reporting</p>
       </div>
     </div>
-    <div class="network-status">
-      <span class="status-dot"></span> Mesh Broadcast Ready
+    <div id="ai-status-container" class="network-status">
+      <span class="status-dot"></span> Local Network Connected
     </div>
   </header>
 
   <main class="main-container">
+    <!-- Immediate Danger Notice -->
+    <div class="emergency-banner">
+      <span>⚠️ In immediate danger? Call emergency services now:</span>
+      <a href="tel:112">📞 Call 112</a>
+    </div>
+
     <div class="card form-card">
-      <h2>Submit Field Report</h2>
-      <p class="text-muted">Broadcast emergency hazard observations across the local mesh network.</p>
+      <h2>Report Emergency</h2>
+      <p class="text-muted" style="margin-bottom: 18px;">Send photos and observations to nearby emergency responders.</p>
 
       <form id="report-form" onsubmit="handleReportSubmit(event)">
-        <div class="form-group">
-          <label for="device_id">Device ID</label>
-          <input type="text" id="device_id" name="device_id" value="citizen-1" required>
-        </div>
+        <!-- Hidden input for device id -->
+        <input type="hidden" id="device_id" name="device_id" value="citizen-1">
+        <input type="hidden" id="capture_mode" name="capture_mode" value="in_app">
 
+        <!-- 1. What is happening? with big emoji choices -->
         <div class="form-group">
-          <label for="transcript">What is happening?</label>
-          <textarea id="transcript" name="transcript" rows="3" placeholder="Describe the hazard, water level, people at risk..." required></textarea>
-        </div>
-
-        <div class="grid-2">
-          <div class="form-group">
-            <label for="lat">Latitude</label>
-            <input type="number" step="any" id="lat" name="lat" value="15.8523" required>
+          <label>What is happening? (Choose one)</label>
+          <div class="emoji-group">
+            <button type="button" class="btn-emoji" onclick="selectHazardEmoji('Flood', '🌊', this)">
+              <span class="emoji">🌊</span>
+              <span>Flood</span>
+            </button>
+            <button type="button" class="btn-emoji" onclick="selectHazardEmoji('Fire', '🔥', this)">
+              <span class="emoji">🔥</span>
+              <span>Fire</span>
+            </button>
+            <button type="button" class="btn-emoji" onclick="selectHazardEmoji('Landslide', '⛰️', this)">
+              <span class="emoji">⛰️</span>
+              <span>Landslide</span>
+            </button>
+            <button type="button" class="btn-emoji" onclick="selectHazardEmoji('Building damage', '🏚️', this)">
+              <span class="emoji">🏚️</span>
+              <span>Building</span>
+            </button>
+            <button type="button" class="btn-emoji" onclick="selectHazardEmoji('Not sure', '❓', this)">
+              <span class="emoji">❓</span>
+              <span>Not sure</span>
+            </button>
           </div>
-          <div class="form-group">
-            <label for="lng">Longitude</label>
-            <input type="number" step="any" id="lng" name="lng" value="74.5085" required>
+
+          <label for="transcript">More details (optional)</label>
+          <textarea id="transcript" name="transcript" rows="3" placeholder="Describe what you see, trapped people, water depth..."></textarea>
+        </div>
+
+        <!-- 2. Location Section -->
+        <div class="location-card">
+          <label style="font-weight: 700; margin-bottom: 8px; display: block;">Incident Location</label>
+          
+          <button type="button" id="btn-geolocation" class="btn btn-secondary btn-large" style="margin-bottom: 12px; width: 100%;" onclick="requestGeolocation()">
+            📍 Use my location
+          </button>
+          <div id="geo-status-msg" class="text-sm" style="margin-bottom: 12px; font-weight: 600;"></div>
+
+          <div class="form-group" style="margin-bottom: 6px;">
+            <label for="nearest_place">Or select nearest place</label>
+            <select id="nearest_place" onchange="onPlaceSelected(this.value)">
+              <option value="" selected disabled>Select nearest place...</option>
+            </select>
           </div>
+
+          <details style="margin-top: 10px;">
+            <summary class="advanced-toggle">⚙️ Advanced (view / edit raw GPS)</summary>
+            <div class="grid-2" style="margin-top: 10px;">
+              <div>
+                <label for="lat" class="text-sm">Latitude</label>
+                <input type="number" step="any" id="lat" name="lat" placeholder="e.g. 15.8523">
+              </div>
+              <div>
+                <label for="lng" class="text-sm">Longitude</label>
+                <input type="number" step="any" id="lng" name="lng" placeholder="e.g. 74.5085">
+              </div>
+            </div>
+          </details>
         </div>
 
+        <!-- 3. Photo Inputs -->
         <div class="form-group">
-          <label for="capture_mode">Capture Mode</label>
-          <select id="capture_mode" name="capture_mode">
-            <option value="in_app" selected>In-App (Live Camera Stamp)</option>
-            <option value="gallery">Gallery (Pre-existing Photo)</option>
-          </select>
-        </div>
+          <label style="font-weight: 700; display: block; margin-bottom: 8px;">Attach Photo</label>
+          <div class="photo-actions">
+            <button type="button" class="btn-photo" onclick="triggerPhotoCapture('camera')">
+              <span style="font-size: 28px;">📷</span>
+              <span>Take photo</span>
+            </button>
+            <button type="button" class="btn-photo" onclick="triggerPhotoCapture('gallery')">
+              <span style="font-size: 28px;">🖼️</span>
+              <span>Choose from gallery</span>
+            </button>
+          </div>
 
-        <div class="form-group">
-          <label for="image">Hazard Photo</label>
-          <input type="file" id="image" name="image" accept="image/*" capture="environment" onchange="previewImage(event)">
+          <!-- Hidden file inputs -->
+          <input type="file" id="file-camera" accept="image/*" capture="environment" style="display: none;" onchange="handleFileChosen(event, 'in_app')">
+          <input type="file" id="file-gallery" accept="image/*" style="display: none;" onchange="handleFileChosen(event, 'gallery')">
+
           <div id="image-preview-container" class="preview-box hidden">
             <img id="image-preview" src="" alt="Photo preview">
-            <button type="button" class="btn-sm btn-subtle" onclick="clearImagePreview()">Remove Photo</button>
+            <div>
+              <div id="photo-source-label" class="text-sm text-muted"></div>
+              <button type="button" class="btn-sm btn-subtle" style="margin-top: 6px;" onclick="clearImagePreview()">Remove Photo</button>
+            </div>
           </div>
         </div>
 
-        <div class="form-actions">
-          <button type="submit" id="btn-submit-report" class="btn btn-primary btn-large">
+        <!-- 4. Submit Action -->
+        <div class="form-actions" style="margin-top: 20px;">
+          <button type="submit" id="btn-submit-report" class="btn btn-primary btn-large" style="font-size: 18px; padding: 16px;">
             Send Emergency Report
           </button>
         </div>
@@ -73,8 +245,8 @@
 
       <div id="report-loading" class="spinner-container hidden">
         <div class="spinner"></div>
-        <div class="spinner-text">Agents are working...</div>
-        <p class="text-sm text-muted">Running vision analysis, verification, corroboration, triage, and task dispatch.</p>
+        <div class="spinner-text">Sending report to responders...</div>
+        <p class="text-sm text-muted">Field units and control room are reviewing your submission.</p>
       </div>
 
       <div id="report-result" class="result-box hidden"></div>
@@ -83,7 +255,7 @@
     <!-- My Report Status Section -->
     <div class="card form-card" style="margin-top: 24px;">
       <h3>My Report Status</h3>
-      <p class="text-muted">Live status of your submitted emergency reports.</p>
+      <p class="text-muted">Live updates on emergency reports sent from this device.</p>
       <div id="status-container">
         <p class="text-muted text-sm">No reports submitted from this session yet.</p>
       </div>

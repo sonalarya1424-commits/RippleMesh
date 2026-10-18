@@ -37,7 +37,40 @@ body {
   color: var(--text-main);
   line-height: 1.5;
   font-size: 16px;
-  -webkit-font-smoothing: antialiased;
+  /* Mock / AI Status Banner */
+.mock-banner {
+  background: #dc2626;
+  color: #ffffff;
+  text-align: center;
+  padding: 10px 16px;
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.3);
+  position: sticky;
+  top: 0;
+  z-index: 9999;
+}
+
+.ai-badge {
+  background: var(--success-light);
+  color: var(--success);
+  border: 1px solid #bbf7d0;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-badge-dot {
+  width: 7px;
+  height: 7px;
+  background-color: var(--success);
+  border-radius: 50%;
+  display: inline-block;
 }
 
 /* Header */

@@ -254,8 +254,11 @@ def triage(incident_id: str) -> Dict[str, Any]:
         vulnerability = []
         reasoning = "Model triage unavailable; default values used."
     else:
-        # Check if partial salvage was used
-        if is_partial and "life_threat" in raw_ai and "time_to_harm" in raw_ai:
+        # Check if mock mode was active
+        from backend.config import MOCK_MODE
+        if MOCK_MODE:
+            model_used = "mock"
+        elif is_partial and "life_threat" in raw_ai and "time_to_harm" in raw_ai:
             model_used = "gemma4:e2b (partial)"
         else:
             model_used = MODEL_NAME

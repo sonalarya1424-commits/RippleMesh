@@ -22,6 +22,10 @@
   </style>
 </head>
 <body>
+  <div id="mock-banner" class="mock-banner hidden">
+    DEMO DATA MODE. The AI model is NOT running. Results are fake.
+  </div>
+
   <!-- Login Screen -->
   <div id="login-section" class="auth-overlay">
     <div class="card form-card" style="max-width: 420px; width:100%;">
@@ -62,6 +66,7 @@
         </div>
       </div>
       <div class="user-info">
+        <div id="ai-status-container"></div>
         <span>Logged in as: <strong id="logged-user-name">Coordinator</strong></span>
         <button class="btn btn-sm btn-subtle" onclick="handleLogout()">Logout</button>
       </div>

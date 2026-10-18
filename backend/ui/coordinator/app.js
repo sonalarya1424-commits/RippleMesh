@@ -216,7 +216,8 @@ function renderIncidents(incidents) {
         ${inc.reasoning ? `
           <div class="reasoning-box">
             <strong>Coordinator Assessment:</strong> ${escapeHtml(inc.reasoning)}
-            ${isFallbackModel ? '<br><span class="fallback-note">⚠️ Default values used, review manually</span>' : ''}
+            ${inc.model_used === 'mock' ? '<span class="badge badge-threat-now" style="margin-left: 8px;">Mock data</span>' : ''}
+            ${isFallbackModel && inc.model_used !== 'mock' ? '<br><span class="fallback-note">⚠️ Default values used, review manually</span>' : ''}
           </div>
         ` : ''}
 
@@ -482,7 +483,31 @@ function escapeHtml(text) {
     .replace(/'/g, '&#039;');
 }
 
+async function checkHealth() {
+  const banner = document.getElementById('mock-banner');
+  const aiContainer = document.getElementById('ai-status-container');
+  try {
+    const res = await fetch('/health');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.mock_mode) {
+      if (banner) banner.classList.remove('hidden');
+      if (aiContainer) {
+        aiContainer.innerHTML = `<span class="badge badge-threat-now">DEMO / MOCK MODE</span>`;
+      }
+    } else {
+      if (banner) banner.classList.add('hidden');
+      if (aiContainer) {
+        aiContainer.innerHTML = `<span class="ai-badge"><span class="ai-badge-dot"></span> AI: ${escapeHtml(data.model || data.model_name || 'gemma4:e2b')}</span>`;
+      }
+    }
+  } catch (e) {
+    console.warn('Could not check /health', e);
+  }
+}
+
 window.addEventListener('DOMContentLoaded', () => {
+  checkHealth();
   if (getAuthToken()) {
     initAuthenticatedUI();
   } else {

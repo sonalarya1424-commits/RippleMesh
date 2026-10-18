@@ -65,4 +65,4 @@ node_modules/
 .vite/
 frontend/dist/
 frontend/node_modules/
-
+certs/

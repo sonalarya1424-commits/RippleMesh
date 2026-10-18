@@ -14,6 +14,10 @@ from backend.services.auth import router as auth_router
 async def lifespan(app: FastAPI):
     # Ensure database tables exist at startup
     init_db()
+    if MOCK_MODE:
+        print(f"MODE: MOCK (fake data, no model)")
+    else:
+        print(f"MODE: REAL ({MODEL_NAME})")
     yield
 
 app = FastAPI(
@@ -69,6 +73,7 @@ def health_check():
     return {
         "status": "healthy",
         "mock_mode": MOCK_MODE,
+        "model": MODEL_NAME,
         "model_name": MODEL_NAME,
         "ollama_url": OLLAMA_URL,
     }
