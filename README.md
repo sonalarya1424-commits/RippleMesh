@@ -1,6 +1,8 @@
-# RippleMesh Backend
+# RippleMesh — Autonomous Disaster Rescue Coordination & Intelligence System
 
-Multi-Agent Disaster Response & Flood Situational Intelligence System powered by FastAPI, SQLite, and Gemma/Ollama.
+RippleMesh is an offline-first, AI-powered disaster rescue coordination system designed for emergency operations centers (EOC) and mesh networks when conventional power and cellular infrastructure are severed.
+
+This repository contains both the **Coordinator Dashboard** (React/Vite) and the **Multi-Agent Backend & Intelligence Service** (FastAPI, SQLite, Gemma/Ollama).
 
 ---
 
@@ -8,88 +10,64 @@ Multi-Agent Disaster Response & Flood Situational Intelligence System powered by
 
 ```text
 RippleMesh/
-  backend/
-    main.py                  # FastAPI application entrypoint
-    config.py                # Environment configuration (MODEL_NAME, OLLAMA_URL, MOCK_MODE)
-    requirements.txt         # Project dependencies
-    db/
-      database.py            # SQLite connection helper & context manager
-      schema.sql             # SQL schema (reports, incidents, dispatch, agent messages)
-      init_db.py             # Script to initialize database tables
-    agents/
-      __init__.py
-      gemma_client.py        # Ollama / Gemma interaction wrapper
-      reporter.py            # Ingestion & normalization agent
-      verifier.py            # Credibility check & image deduplication agent
-      corroboration.py       # Spatial/temporal report clustering agent
-      coordinator.py         # Incident synthesis & priority agent
-      dispatcher.py          # Field rescue team dispatch agent
-    services/
-      messaging.py           # Agent message bus & persistence logger
-      scoring.py             # Confidence & priority scoring formulas
-    routes/
-      reports.py             # Ingestion & report retrieval endpoints
-      incidents.py           # Incident lifecycle endpoints
-      dispatch.py            # Dispatch order creation & tracking
-      messages.py            # Agent message log endpoints
-    sample_data/
-      sample_reports.json    # 5 sample flood report payloads for testing
-  tests/                     # Test suite directory
-  README.md
+├── index.html                   # HTML template with Google Fonts (Inter + JetBrains Mono)
+├── package.json                 # React + Vite setup
+├── vite.config.js               # Dev server configuration
+├── src/                         # Coordinator Dashboard frontend
+│   ├── main.jsx                 # Application entrypoint
+│   ├── App.jsx                  # Root state management & local mutations
+│   ├── components/              # Tactical UI Components
+│   └── styles/                  # Modular CSS Architecture
+├── backend/                     # Multi-Agent Backend
+│   ├── main.py                  # FastAPI application entrypoint
+│   ├── config.py                # Configuration (MODEL_NAME, OLLAMA_URL, MOCK_MODE)
+│   ├── requirements.txt         # Python dependencies
+│   ├── db/
+│   │   ├── database.py          # SQLite connection helper & context manager
+│   │   ├── schema.sql           # Database schema (12 tables with FKs & indexes)
+│   │   ├── init_db.py           # Database initializer & Belagavi responders seeder
+│   │   └── verify_db.py         # Schema verification helper
+│   ├── agents/                  # Multi-agent system skeletons (Gemma, Reporter, Verifier, Corroboration, Coordinator, Dispatcher)
+│   ├── services/                # Inter-agent messaging bus and scoring algorithms
+│   ├── routes/                  # API endpoints (reports, incidents, dispatch, messages)
+│   └── sample_data/             # Test flood report payloads
+├── scripts/
+│   └── get_dataset.py           # Disaster damage dataset downloader and sampler
+├── test_images/                 # Sampled 90 test images across 6 hazard classes with labels.csv
+└── tests/                       # Test suite
 ```
 
 ---
 
-## Configuration & Environment Variables
+## 1. Coordinator Dashboard (Frontend)
 
-| Variable | Default | Description |
-|---|---|---|
-| `MODEL_NAME` | `gemma4:e2b` | Ollama model identifier |
-| `OLLAMA_URL` | `http://localhost:11434` | Ollama service endpoint |
-| `MOCK_MODE` | `true` | When `true`, agents return realistic mock JSON without calling the model |
-| `DATABASE_PATH` | `backend/db/ripplemesh.db` | Path to SQLite database file |
+### Setup & Run
+```bash
+npm install
+npm run dev
+```
+Open **[http://localhost:5173/](http://localhost:5173/)** in your browser.
 
 ---
 
-## Setup & Run Instructions
+## 2. Backend API & Agent Service
 
-### 1. Create and Activate a Virtual Environment
-
-**Windows (PowerShell):**
+### Setup & Run
 ```powershell
 python -m venv venv
 .\venv\Scripts\Activate.ps1
-```
-
-**macOS / Linux:**
-```bash
-python3 -m venv venv
-source venv/bin/activate
-```
-
-### 2. Install Dependencies
-
-```bash
 pip install -r backend/requirements.txt
-```
-
-### 3. Initialize Database
-
-```bash
 python -m backend.db.init_db
-```
-
-*(Note: The database is also auto-initialized when starting the FastAPI app.)*
-
-### 4. Run the Server
-
-From the project root:
-
-```bash
 uvicorn backend.main:app --reload --port 8000
 ```
-
-### 5. Access API & Documentation
-
-- Interactive Swagger Docs: [http://localhost:8000/docs](http://localhost:8000/docs)
+- Interactive API Docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 - Health Check: [http://localhost:8000/health](http://localhost:8000/health)
+
+---
+
+## 3. Disaster Damage Dataset
+
+To download and sample 15 images per class (earthquake, fire, flood, landslide, normal, smoke) from Kaggle into `test_images/`:
+```bash
+python scripts/get_dataset.py
+```
