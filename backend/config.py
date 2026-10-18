@@ -5,3 +5,6 @@ OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 MOCK_MODE = os.getenv("MOCK_MODE", "true").lower() in ("true", "1", "yes")
 
 DATABASE_PATH = os.getenv("DATABASE_PATH", os.path.join(os.path.dirname(__file__), "db", "ripplemesh.db"))
+
+CLUSTER_RADIUS_M = float(os.getenv("CLUSTER_RADIUS_M", 200))
+CLUSTER_WINDOW_MIN = float(os.getenv("CLUSTER_WINDOW_MIN", 30))
