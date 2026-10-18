@@ -1,89 +1,73 @@
-# RippleMesh — Offline-First Coordinator Dashboard
+# RippleMesh — Autonomous Disaster Rescue Coordination & Intelligence System
 
-RippleMesh is an offline-first, AI-powered disaster rescue coordination system designed for emergency operations centers (EOC) when conventional power and cellular infrastructure are severed.
+RippleMesh is an offline-first, AI-powered disaster rescue coordination system designed for emergency operations centers (EOC) and mesh networks when conventional power and cellular infrastructure are severed.
 
-This repository contains the **Coordinator Dashboard** frontend built with React, Vite, and clean modular CSS.
-
----
-
-## Getting Started
-
-### 1. Install Dependencies
-```bash
-npm install
-```
-
-### 2. Start Development Server
-```bash
-npm run dev
-```
-Open **[http://localhost:5173/](http://localhost:5173/)** in your browser.
-
-### 3. Build for Production
-```bash
-npm run build
-```
+This repository contains both the **Coordinator Dashboard** (React/Vite) and the **Multi-Agent Backend & Intelligence Service** (FastAPI, SQLite, Gemma/Ollama).
 
 ---
 
 ## Project Structure
 
-```
+```text
 RippleMesh/
 ├── index.html                   # HTML template with Google Fonts (Inter + JetBrains Mono)
-├── package.json                 # Minimal React + Vite setup
-├── vite.config.js               # Dev server port 5173 with React plugin
-├── src/
+├── package.json                 # React + Vite setup
+├── vite.config.js               # Dev server configuration
+├── src/                         # Coordinator Dashboard frontend
 │   ├── main.jsx                 # Application entrypoint
-│   ├── App.jsx                  # Root state management, view routing & local mutations
-│   ├── index.css                # Global imports, resets, scrollbars
-│   ├── data/                    # Modular Mock Telemetry Datasets
-│   │   ├── incidents.js         # Realistic incidents with decoupled urgency, trust & witnesses
-│   │   ├── responders.js        # Active rescue units, equipment, radio nodes, battery
-│   │   └── agentEvents.js       # Timeline for Reporter, Verifier, Relay, Corroboration, Coordinator
-│   ├── components/              # Reusable UI Components
-│   │   ├── Icons.jsx            # Zero-dependency SVG icon system
-│   │   ├── StatusBadge.jsx      # Incident status badges
-│   │   ├── SeverityBadge.jsx    # Urgency & severity badges with pulse animations
-│   │   ├── SummaryCards.jsx     # Dynamically computed metric cards with quick filters
-│   │   ├── IncidentList.jsx     # Filterable queue (search, severity, status, sorting)
-│   │   ├── IncidentDetail.jsx   # Detailed panel with synthetic visualizer & voice telemetry
-│   │   ├── AgentActivityFeed.jsx# Multi-agent timeline with agent filter chips & simulation
-│   │   ├── DemoMap.jsx          # Offline illustrative tactical SVG grid with LoRa nodes
-│   │   ├── RespondersView.jsx   # Unit fleet management with equipment & status cycling
-│   │   ├── EditIncidentModal.jsx# In-memory modal dialog with form validation
-│   │   ├── Sidebar.jsx          # Dark navy navigation with mesh health telemetry
-│   │   └── Navbar.jsx           # Operations console header with simulated distress burst trigger
-│   └── styles/                  # Modular Plain CSS Architecture
-│       ├── variables.css        # Dark navy (#070b14) & electric teal (#00e5c9) tokens
-│       ├── layout.css           # Sticky sidebar, grid systems, responsive breakpoints
-│       └── components.css       # Styles for cards, feeds, badges, maps, audio player
+│   ├── App.jsx                  # Root state management & local mutations
+│   ├── components/              # Tactical UI Components
+│   └── styles/                  # Modular CSS Architecture
+├── backend/                     # Multi-Agent Backend
+│   ├── main.py                  # FastAPI application entrypoint
+│   ├── config.py                # Configuration (MODEL_NAME, OLLAMA_URL, MOCK_MODE)
+│   ├── requirements.txt         # Python dependencies
+│   ├── db/
+│   │   ├── database.py          # SQLite connection helper & context manager
+│   │   ├── schema.sql           # Database schema (12 tables with FKs & indexes)
+│   │   ├── init_db.py           # Database initializer & Belagavi responders seeder
+│   │   └── verify_db.py         # Schema verification helper
+│   ├── agents/                  # Multi-agent system skeletons (Gemma, Reporter, Verifier, Corroboration, Coordinator, Dispatcher)
+│   ├── services/                # Inter-agent messaging bus and scoring algorithms
+│   ├── routes/                  # API endpoints (reports, incidents, dispatch, messages)
+│   └── sample_data/             # Test flood report payloads
+├── scripts/
+│   └── get_dataset.py           # Disaster damage dataset downloader and sampler
+├── test_images/                 # Sampled 90 test images across 6 hazard classes with labels.csv
+└── tests/                       # Test suite
 ```
 
 ---
 
-## Core Architectural Highlights
+## 1. Coordinator Dashboard (Frontend)
 
-1. **Decoupled Urgency, Confidence, and Trust:**
-   - **Severity/Urgency**: Immediate hazard risk (e.g. Critical, High, Medium, Low).
-   - **Confidence Score**: AI extraction probability (e.g. 96%).
-   - **Trust Score**: Source authenticity & cryptographic signature verification.
-   - *Design Rule*: Incident `RM-8202` represents a critical structural collapse with only **1 unverified witness**. Under RippleMesh offline triage policy, this incident preserves its **CRITICAL** triage priority rather than being downgraded due to low corroboration.
-
-2. **Offline-First Zero-API Architecture:**
-   - No external map tiles (e.g. Google Maps, Mapbox) are required. The tactical grid is rendered via an interactive SVG coordinate canvas.
-   - No external font icon CDNs or large component libraries. All icons and evidence graphics are rendered via lightweight, performant SVGs.
-
-3. **Interactive Local State Mutations:**
-   - **Approve / Reject**: Updates local operational status with visible feedback banners and auto-logs Coordinator Agent events.
-   - **Edit Incident**: Opens a validated modal to edit titles, severities, statuses, and notes.
-   - **Simulate Distress Burst**: Emits simulated LoRa/BLE distress packets into the local queue.
-   - **Simulate Next Agent Cycle**: Triggers autonomous background agent pulses across the 5 agents.
+### Setup & Run
+```bash
+npm install
+npm run dev
+```
+Open **[http://localhost:5173/](http://localhost:5173/)** in your browser.
 
 ---
 
-## Integration Guide for Teammates
+## 2. Backend API & Agent Service
 
-- **Backend / Mesh Relay Team**: Replace `src/data/incidents.js` with WebSocket or SSE subscriptions connecting to local LoRa/BLE bridge nodes.
-- **AI Agent Team**: Replace the simulated triage objects in `src/data/agentEvents.js` and `aiTriage` in `incidents.js` with local edge LLM outputs (e.g., Llama-3, Whisper-tiny).
-- **Database Team**: Replace `useState` mutations in `src/App.jsx` (`handleApproveIncident`, `handleSaveEdit`, etc.) with SQLite/IndexedDB or CouchDB sync operations.
+### Setup & Run
+```powershell
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r backend/requirements.txt
+python -m backend.db.init_db
+uvicorn backend.main:app --reload --port 8000
+```
+- Interactive API Docs: [http://localhost:8000/docs](http://localhost:8000/docs)
+- Health Check: [http://localhost:8000/health](http://localhost:8000/health)
+
+---
+
+## 3. Disaster Damage Dataset
+
+To download and sample 15 images per class (earthquake, fire, flood, landslide, normal, smoke) from Kaggle into `test_images/`:
+```bash
+python scripts/get_dataset.py
+```

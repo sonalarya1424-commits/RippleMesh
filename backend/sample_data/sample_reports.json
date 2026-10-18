@@ -1,0 +1,57 @@
+[
+  {
+    "id": "rep-001",
+    "source": "sms",
+    "author": "+15550192834",
+    "text_content": "Water rising above waist level on Gandhi Road near the bus stand. 4 people stranded in a shop.",
+    "image_url": "https://images.unsplash.com/photo-1547683905-f686c993aae5?auto=format&fit=crop&w=600&q=80",
+    "latitude": 13.0827,
+    "longitude": 80.2707,
+    "location_name": "Gandhi Road Bus Stand",
+    "created_at": "2026-10-18T05:45:00Z"
+  },
+  {
+    "id": "rep-002",
+    "source": "twitter",
+    "author": "@chennai_watcher",
+    "text_content": "Flash flooding on Anna Salai opposite to metro station. Cars floating, avoid this route immediately!",
+    "image_url": "https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?auto=format&fit=crop&w=600&q=80",
+    "latitude": 13.0604,
+    "longitude": 80.2496,
+    "location_name": "Anna Salai Metro",
+    "created_at": "2026-10-18T05:50:00Z"
+  },
+  {
+    "id": "rep-003",
+    "source": "web_portal",
+    "author": "Citizen Volunteer Ravi",
+    "text_content": "Heavy water accumulation around residential colony in Velachery. Water entry into ground floor houses.",
+    "image_url": null,
+    "latitude": 12.9759,
+    "longitude": 80.2212,
+    "location_name": "Velachery 100ft Road",
+    "created_at": "2026-10-18T06:05:00Z"
+  },
+  {
+    "id": "rep-004",
+    "source": "sms",
+    "author": "+15550987654",
+    "text_content": "Adyar river embankment overflowing near Kotturpuram bridge. Current is very fast.",
+    "image_url": "https://images.unsplash.com/photo-1547683905-f686c993aae5?auto=format&fit=crop&w=600&q=80",
+    "latitude": 13.0184,
+    "longitude": 80.2437,
+    "location_name": "Kotturpuram Bridge",
+    "created_at": "2026-10-18T06:12:00Z"
+  },
+  {
+    "id": "rep-005",
+    "source": "citizen_app",
+    "author": "user_priya_m",
+    "text_content": "Elderly couple needing evacuation from submerged apartment ground floor on 4th Main Road.",
+    "image_url": null,
+    "latitude": 12.9815,
+    "longitude": 80.2180,
+    "location_name": "Velachery 4th Main",
+    "created_at": "2026-10-18T06:20:00Z"
+  }
+]
