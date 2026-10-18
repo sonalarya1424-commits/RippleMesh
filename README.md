@@ -10,14 +10,17 @@ This repository contains both the **Coordinator Dashboard** (React/Vite) and the
 
 ```text
 RippleMesh/
-├── index.html                   # HTML template with Google Fonts (Inter + JetBrains Mono)
-├── package.json                 # React + Vite setup
-├── vite.config.js               # Dev server configuration
-├── src/                         # Coordinator Dashboard frontend
-│   ├── main.jsx                 # Application entrypoint
-│   ├── App.jsx                  # Root state management & local mutations
-│   ├── components/              # Tactical UI Components
-│   └── styles/                  # Modular CSS Architecture
+├── frontend/                    # Coordinator Dashboard (React + Vite)
+│   ├── index.html               # HTML template with Google Fonts
+│   ├── package.json             # React + Vite setup
+│   ├── vite.config.js           # Dev server configuration
+│   └── src/                     # Dashboard frontend source
+│       ├── main.jsx             # Application entrypoint
+│       ├── App.jsx              # Root state management & local mutations
+│       ├── components/          # Tactical UI Components
+│       ├── data/                # Mock incidents & responder datasets
+│       ├── styles/              # Modular CSS Architecture
+│       └── utils/               # IndexedDB offline persistence
 ├── backend/                     # Multi-Agent Backend
 │   ├── main.py                  # FastAPI application entrypoint
 │   ├── config.py                # Configuration (MODEL_NAME, OLLAMA_URL, MOCK_MODE)
@@ -43,6 +46,7 @@ RippleMesh/
 
 ### Setup & Run
 ```bash
+cd frontend
 npm install
 npm run dev
 ```

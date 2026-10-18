@@ -62,3 +62,7 @@ test_images/
 backend/uploads/
 .env
 node_modules/
+.vite/
+frontend/dist/
+frontend/node_modules/
+
