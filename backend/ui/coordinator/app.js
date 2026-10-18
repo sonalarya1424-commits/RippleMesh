@@ -1,15 +1,115 @@
 /**
- * RippleMesh Coordinator & Field Communication UI
- * Offline-ready, plain vanilla JavaScript with relative API calls.
+ * Coordinator Dashboard JS with session authentication, auto-refresh,
+ * incident detail modal, dispatch approval, and outcome tracking.
  */
 
 let incidentsInterval = null;
 let messagesInterval = null;
-let currentTab = 'coordinator';
+let currentCoordinatorTab = 'dashboard';
 
-// Tab Switching
-function switchTab(tabName) {
-  currentTab = tabName;
+const AUTH_TOKEN_KEY = 'ripplemesh_coord_token';
+const AUTH_NAME_KEY = 'ripplemesh_coord_name';
+
+function getAuthToken() {
+  return sessionStorage.getItem(AUTH_TOKEN_KEY);
+}
+
+function getAuthName() {
+  return sessionStorage.getItem(AUTH_NAME_KEY) || 'Coordinator';
+}
+
+function authHeaders() {
+  const token = getAuthToken();
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
+function handle401() {
+  sessionStorage.removeItem(AUTH_TOKEN_KEY);
+  sessionStorage.removeItem(AUTH_NAME_KEY);
+  stopLoops();
+  document.getElementById('dashboard-section').classList.add('hidden');
+  document.getElementById('login-section').classList.remove('hidden');
+  showLoginError('Session expired or unauthorized. Please log in again.');
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('login-error');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+async function handleLogin(e) {
+  e.preventDefault();
+  const name = document.getElementById('coord-name').value;
+  const pin = document.getElementById('coord-pin').value;
+  const errBox = document.getElementById('login-error');
+  errBox.classList.add('hidden');
+
+  try {
+    const res = await fetch('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, pin })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      showLoginError(data.detail || 'Login failed');
+      return;
+    }
+
+    sessionStorage.setItem(AUTH_TOKEN_KEY, data.token);
+    sessionStorage.setItem(AUTH_NAME_KEY, data.name);
+    initAuthenticatedUI();
+  } catch (err) {
+    showLoginError(`Network error: ${err.message}`);
+  }
+}
+
+async function handleLogout() {
+  try {
+    await fetch('/auth/logout', {
+      method: 'POST',
+      headers: authHeaders()
+    });
+  } catch (e) {}
+  handle401();
+}
+
+function initAuthenticatedUI() {
+  const token = getAuthToken();
+  if (!token) {
+    handle401();
+    return;
+  }
+
+  document.getElementById('logged-user-name').textContent = getAuthName();
+  document.getElementById('login-section').classList.add('hidden');
+  document.getElementById('dashboard-section').classList.remove('hidden');
+
+  fetchIncidents();
+  fetchMessages();
+  startLoops();
+}
+
+function startLoops() {
+  stopLoops();
+  incidentsInterval = setInterval(() => {
+    if (currentCoordinatorTab === 'dashboard') fetchIncidents();
+  }, 5000);
+
+  messagesInterval = setInterval(() => {
+    if (currentCoordinatorTab === 'log') fetchMessages();
+  }, 3000);
+}
+
+function stopLoops() {
+  if (incidentsInterval) clearInterval(incidentsInterval);
+  if (messagesInterval) clearInterval(messagesInterval);
+}
+
+function switchCoordinatorTab(tabName) {
+  currentCoordinatorTab = tabName;
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
 
@@ -18,130 +118,29 @@ function switchTab(tabName) {
   if (btn) btn.classList.add('active');
   if (content) content.classList.add('active');
 
-  // Trigger immediate refresh for the active tab
-  if (tabName === 'coordinator') {
-    fetchIncidents();
-  } else if (tabName === 'log') {
-    fetchMessages();
-  }
+  if (tabName === 'dashboard') fetchIncidents();
+  if (tabName === 'log') fetchMessages();
 }
 
-// Notification Banner
 function showNotification(text, durationMs = 4000) {
   const bar = document.getElementById('notification-bar');
   if (!bar) return;
   bar.textContent = text;
   bar.classList.remove('hidden');
-  setTimeout(() => {
-    bar.classList.add('hidden');
-  }, durationMs);
+  setTimeout(() => bar.classList.add('hidden'), durationMs);
 }
 
-// ==========================================
-// TAB 1: Citizen Report
-// ==========================================
-
-function previewImage(event) {
-  const file = event.target.files && event.target.files[0];
-  const container = document.getElementById('image-preview-container');
-  const img = document.getElementById('image-preview');
-
-  if (file) {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      img.src = e.target.result;
-      container.classList.remove('hidden');
-    };
-    reader.readAsDataURL(file);
-  } else {
-    clearImagePreview();
-  }
-}
-
-function clearImagePreview() {
-  const input = document.getElementById('image');
-  const container = document.getElementById('image-preview-container');
-  const img = document.getElementById('image-preview');
-  if (input) input.value = '';
-  if (img) img.src = '';
-  if (container) container.classList.add('hidden');
-}
-
-async function handleReportSubmit(event) {
-  event.preventDefault();
-  const form = document.getElementById('report-form');
-  const submitBtn = document.getElementById('btn-submit-report');
-  const loading = document.getElementById('report-loading');
-  const resultBox = document.getElementById('report-result');
-
-  resultBox.className = 'result-box hidden';
-  resultBox.innerHTML = '';
-  submitBtn.disabled = true;
-  loading.classList.remove('hidden');
-
-  const formData = new FormData(form);
-
-  try {
-    const response = await fetch('/report', {
-      method: 'POST',
-      body: formData
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      const detail = data && data.detail ? data.detail : 'Report submission failed';
-      resultBox.className = 'result-box error';
-      resultBox.innerHTML = `<strong>Submission Error:</strong> ${escapeHtml(detail)}`;
-      resultBox.classList.remove('hidden');
-      return;
-    }
-
-    const resData = data.data || {};
-
-    if (resData.dismissed) {
-      resultBox.className = 'result-box warning';
-      resultBox.innerHTML = `
-        <h3>⚠️ Report Dismissed</h3>
-        <p>No hazard visible in this photo. Report dismissed.</p>
-        <p class="text-sm text-muted">Report ID: <code>${escapeHtml(resData.report_id || 'N/A')}</code></p>
-      `;
-    } else {
-      resultBox.className = 'result-box success';
-      resultBox.innerHTML = `
-        <h3>✅ Incident Ingested & Triaged</h3>
-        <div style="margin-top: 8px;">
-          <div><strong>Incident ID:</strong> <code>${escapeHtml(resData.incident_id || 'N/A')}</code></div>
-          <div><strong>Trust Score:</strong> ${(resData.trust_score !== undefined ? Number(resData.trust_score).toFixed(2) : 'N/A')}</div>
-          <div><strong>Corroborated Confidence:</strong> ${(resData.confidence !== undefined ? (Number(resData.confidence) * 100).toFixed(0) + '%' : 'N/A')}</div>
-          <div><strong>Life Threat:</strong> <span class="badge badge-threat-${escapeHtml(resData.life_threat || 'none')}">${escapeHtml(resData.life_threat || 'none')}</span></div>
-          <div><strong>Priority Score:</strong> <strong>${(resData.priority_score !== undefined ? Number(resData.priority_score).toFixed(3) : 'N/A')}</strong></div>
-          ${resData.unverified ? '<div class="badge badge-unverified" style="margin-top:6px;">UNVERIFIED, help requested</div>' : ''}
-        </div>
-      `;
-      // Clear form except coords/device
-      document.getElementById('transcript').value = '';
-      clearImagePreview();
-    }
-    resultBox.classList.remove('hidden');
-  } catch (err) {
-    resultBox.className = 'result-box error';
-    resultBox.innerHTML = `<strong>Network/Server Error:</strong> ${escapeHtml(err.message || String(err))}`;
-    resultBox.classList.remove('hidden');
-  } finally {
-    submitBtn.disabled = false;
-    loading.classList.add('hidden');
-  }
-}
-
-// ==========================================
-// TAB 2: Coordinator Dashboard
-// ==========================================
-
+// Incidents Dashboard
 async function fetchIncidents() {
   const container = document.getElementById('incidents-container');
   try {
-    const res = await fetch('/incidents');
+    const res = await fetch('/incidents', {
+      headers: authHeaders()
+    });
+    if (res.status === 401) {
+      handle401();
+      return;
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const incidents = await res.json();
 
@@ -158,9 +157,6 @@ async function fetchIncidents() {
     renderIncidents(incidents);
   } catch (err) {
     console.error('fetchIncidents error:', err);
-    if (!container.querySelector('.incident-card')) {
-      container.innerHTML = `<div class="card empty-state" style="color:var(--danger)">Failed to load incidents: ${escapeHtml(err.message)}</div>`;
-    }
   }
 }
 
@@ -265,22 +261,24 @@ async function handleDispatchAction(dispatchId, action) {
   try {
     const res = await fetch(`/dispatch/${encodeURIComponent(dispatchId)}/approve`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: action,
-        approver: 'coordinator-1'
-      })
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders()
+      },
+      body: JSON.stringify({ action: action })
     });
+    if (res.status === 401) {
+      handle401();
+      return;
+    }
     const result = await res.json();
     if (!res.ok) throw new Error(result.detail || 'Dispatch action failed');
 
     showNotification(`Dispatch ${action.toUpperCase()} processed.`);
 
-    // If approved or edited, load task card to display responder and Google Maps link
     if (action === 'approve' || action === 'edit') {
       loadTaskCardDisplay(result.incident_id, dispatchId);
     }
-
     fetchIncidents();
   } catch (err) {
     alert(`Error: ${err.message}`);
@@ -292,7 +290,13 @@ async function loadTaskCardDisplay(incidentId, dispatchId) {
   if (!target) return;
 
   try {
-    const res = await fetch(`/incidents/${encodeURIComponent(incidentId)}`);
+    const res = await fetch(`/incidents/${encodeURIComponent(incidentId)}`, {
+      headers: authHeaders()
+    });
+    if (res.status === 401) {
+      handle401();
+      return;
+    }
     const data = await res.json();
     const dsp = (data.dispatches || []).find(d => d.dispatch_id === dispatchId) || (data.dispatches || [])[0];
 
@@ -321,9 +325,16 @@ async function handleDispatchOutcome(dispatchId, outcome) {
   try {
     const res = await fetch(`/dispatch/${encodeURIComponent(dispatchId)}/outcome`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders()
+      },
       body: JSON.stringify({ outcome: outcome })
     });
+    if (res.status === 401) {
+      handle401();
+      return;
+    }
     const result = await res.json();
     if (!res.ok) throw new Error(result.detail || 'Outcome update failed');
 
@@ -334,7 +345,6 @@ async function handleDispatchOutcome(dispatchId, outcome) {
   }
 }
 
-// Modal Details & Provenance
 async function showIncidentDetails(incidentId) {
   const modal = document.getElementById('details-modal');
   const body = document.getElementById('modal-body');
@@ -343,7 +353,13 @@ async function showIncidentDetails(incidentId) {
   body.innerHTML = '<div class="empty-state">Loading provenance records...</div>';
 
   try {
-    const res = await fetch(`/incidents/${encodeURIComponent(incidentId)}`);
+    const res = await fetch(`/incidents/${encodeURIComponent(incidentId)}`, {
+      headers: authHeaders()
+    });
+    if (res.status === 401) {
+      handle401();
+      return;
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
@@ -392,28 +408,25 @@ function closeModal() {
 }
 
 function closeModalOnOverlay(e) {
-  if (e.target.id === 'details-modal') {
-    closeModal();
-  }
+  if (e.target.id === 'details-modal') closeModal();
 }
 
-// ==========================================
-// TAB 3: Agent Log
-// ==========================================
-
+// Agent Log Bus
 async function fetchMessages() {
   const container = document.getElementById('messages-container');
   try {
-    const res = await fetch('/messages?limit=50');
+    const res = await fetch('/messages?limit=50', {
+      headers: authHeaders()
+    });
+    if (res.status === 401) {
+      handle401();
+      return;
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const messages = await res.json();
 
     if (!messages || messages.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          No agent messages recorded yet.
-        </div>
-      `;
+      container.innerHTML = `<div class="empty-state">No agent messages recorded yet.</div>`;
       return;
     }
 
@@ -456,12 +469,9 @@ function renderMessages(messages) {
 
 function toggleMsgDetails(messageId) {
   const details = document.getElementById(`msg-details-${messageId}`);
-  if (details) {
-    details.classList.toggle('hidden');
-  }
+  if (details) details.classList.toggle('hidden');
 }
 
-// Helpers
 function escapeHtml(text) {
   if (text === null || text === undefined) return '';
   return String(text)
@@ -472,22 +482,10 @@ function escapeHtml(text) {
     .replace(/'/g, '&#039;');
 }
 
-// Initialization & Interval Loops
 window.addEventListener('DOMContentLoaded', () => {
-  fetchIncidents();
-  fetchMessages();
-
-  // Incidents: every 5 seconds
-  incidentsInterval = setInterval(() => {
-    if (currentTab === 'coordinator') {
-      fetchIncidents();
-    }
-  }, 5000);
-
-  // Messages: every 3 seconds
-  messagesInterval = setInterval(() => {
-    if (currentTab === 'log') {
-      fetchMessages();
-    }
-  }, 3000);
+  if (getAuthToken()) {
+    initAuthenticatedUI();
+  } else {
+    handle401();
+  }
 });

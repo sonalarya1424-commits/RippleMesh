@@ -8,3 +8,5 @@ DATABASE_PATH = os.getenv("DATABASE_PATH", os.path.join(os.path.dirname(__file__
 
 CLUSTER_RADIUS_M = float(os.getenv("CLUSTER_RADIUS_M", 200))
 CLUSTER_WINDOW_MIN = float(os.getenv("CLUSTER_WINDOW_MIN", 30))
+
+COORDINATOR_PIN = os.getenv("COORDINATOR_PIN", "4321")

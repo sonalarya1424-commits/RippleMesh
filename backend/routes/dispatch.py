@@ -1,10 +1,11 @@
 """Routes for field team dispatch, approval, outcome updates, and resource logistics."""
 import json
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 from backend.db.database import get_db
 from backend.services.messaging import send_message
+from backend.services.auth import require_coordinator
 
 router = APIRouter(prefix="/dispatch", tags=["Dispatch"])
 
@@ -17,7 +18,7 @@ class DispatchOutcomePayload(BaseModel):
     outcome: str = Field(..., example="resolved")  # reached | resolved | false_alarm
 
 @router.post("/{dispatch_id}/approve")
-def approve_dispatch(dispatch_id: str, payload: DispatchApprovePayload):
+def approve_dispatch(dispatch_id: str, payload: DispatchApprovePayload, session: Dict[str, Any] = Depends(require_coordinator)):
     """Update approval_status and incident status, send HUMAN_DECISION message."""
     action = payload.action.lower().strip()
     status_map = {
@@ -29,6 +30,7 @@ def approve_dispatch(dispatch_id: str, payload: DispatchApprovePayload):
         raise HTTPException(status_code=400, detail=f"Invalid action '{payload.action}'. Allowed: approve, edit, reject")
 
     new_approval_status = status_map[action]
+    approver_name = session.get("name", "coordinator-1")
 
     with get_db() as conn:
         cursor = conn.execute("SELECT * FROM dispatches WHERE dispatch_id = ?", (dispatch_id,))
@@ -50,7 +52,7 @@ def approve_dispatch(dispatch_id: str, payload: DispatchApprovePayload):
                 SET approval_status = ?, approved_by = ?, task_card = ?
                 WHERE dispatch_id = ?
                 """,
-                (new_approval_status, payload.approver, task_card_update, dispatch_id),
+                (new_approval_status, approver_name, task_card_update, dispatch_id),
             )
         else:
             conn.execute(
@@ -59,7 +61,7 @@ def approve_dispatch(dispatch_id: str, payload: DispatchApprovePayload):
                 SET approval_status = ?, approved_by = ?
                 WHERE dispatch_id = ?
                 """,
-                (new_approval_status, payload.approver, dispatch_id),
+                (new_approval_status, approver_name, dispatch_id),
             )
 
         # Update incident status
@@ -79,7 +81,7 @@ def approve_dispatch(dispatch_id: str, payload: DispatchApprovePayload):
             "incident_id": incident_id,
             "action": action,
             "approval_status": new_approval_status,
-            "approver": payload.approver,
+            "approver": approver_name,
             "edited_card": payload.edited_card
         },
         ref_id=dispatch_id
@@ -93,7 +95,7 @@ def approve_dispatch(dispatch_id: str, payload: DispatchApprovePayload):
     }
 
 @router.post("/{dispatch_id}/outcome")
-def set_dispatch_outcome(dispatch_id: str, payload: DispatchOutcomePayload):
+def set_dispatch_outcome(dispatch_id: str, payload: DispatchOutcomePayload, session: Dict[str, Any] = Depends(require_coordinator)):
     """Set field mission outcome: reached | resolved | false_alarm."""
     allowed_outcomes = {"reached", "resolved", "false_alarm"}
     outcome = payload.outcome.lower().strip()

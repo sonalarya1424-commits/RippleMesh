@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Citizen Emergency Portal - RippleMesh</title>
+  <link rel="stylesheet" href="/ui-static/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-brand">
+      <div class="brand-logo">📢</div>
+      <div>
+        <h1>Citizen Portal</h1>
+        <p class="tagline">Submit emergency hazard observation</p>
+      </div>
+    </div>
+    <div class="network-status">
+      <span class="status-dot"></span> Mesh Broadcast Ready
+    </div>
+  </header>
+
+  <main class="main-container">
+    <div class="card form-card">
+      <h2>Submit Field Report</h2>
+      <p class="text-muted">Broadcast emergency hazard observations across the local mesh network.</p>
+
+      <form id="report-form" onsubmit="handleReportSubmit(event)">
+        <div class="form-group">
+          <label for="device_id">Device ID</label>
+          <input type="text" id="device_id" name="device_id" value="citizen-1" required>
+        </div>
+
+        <div class="form-group">
+          <label for="transcript">What is happening?</label>
+          <textarea id="transcript" name="transcript" rows="3" placeholder="Describe the hazard, water level, people at risk..." required></textarea>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="lat">Latitude</label>
+            <input type="number" step="any" id="lat" name="lat" value="15.8523" required>
+          </div>
+          <div class="form-group">
+            <label for="lng">Longitude</label>
+            <input type="number" step="any" id="lng" name="lng" value="74.5085" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="capture_mode">Capture Mode</label>
+          <select id="capture_mode" name="capture_mode">
+            <option value="in_app" selected>In-App (Live Camera Stamp)</option>
+            <option value="gallery">Gallery (Pre-existing Photo)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="image">Hazard Photo</label>
+          <input type="file" id="image" name="image" accept="image/*" capture="environment" onchange="previewImage(event)">
+          <div id="image-preview-container" class="preview-box hidden">
+            <img id="image-preview" src="" alt="Photo preview">
+            <button type="button" class="btn-sm btn-subtle" onclick="clearImagePreview()">Remove Photo</button>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" id="btn-submit-report" class="btn btn-primary btn-large">
+            Send Emergency Report
+          </button>
+        </div>
+      </form>
+
+      <div id="report-loading" class="spinner-container hidden">
+        <div class="spinner"></div>
+        <div class="spinner-text">Agents are working...</div>
+        <p class="text-sm text-muted">Running vision analysis, verification, corroboration, triage, and task dispatch.</p>
+      </div>
+
+      <div id="report-result" class="result-box hidden"></div>
+    </div>
+
+    <!-- My Report Status Section -->
+    <div class="card form-card" style="margin-top: 24px;">
+      <h3>My Report Status</h3>
+      <p class="text-muted">Live status of your submitted emergency reports.</p>
+      <div id="status-container">
+        <p class="text-muted text-sm">No reports submitted from this session yet.</p>
+      </div>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

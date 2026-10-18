@@ -3,160 +3,99 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RippleMesh - Emergency Disaster Coordinator</title>
-  <link rel="stylesheet" href="style.css">
+  <title>RippleMesh - Emergency Disaster Mesh</title>
+  <link rel="stylesheet" href="/ui-static/style.css">
+  <style>
+    .landing-wrapper {
+      min-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+    }
+    .landing-card {
+      background: #ffffff;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 40px 32px;
+      max-width: 520px;
+      width: 100%;
+      box-shadow: var(--shadow-md);
+    }
+    .landing-logo {
+      font-size: 54px;
+      margin-bottom: 12px;
+    }
+    .landing-title {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 6px;
+    }
+    .landing-desc {
+      color: var(--text-muted);
+      font-size: 15px;
+      margin-bottom: 30px;
+      line-height: 1.5;
+    }
+    .portal-options {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .btn-portal {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 16px 20px;
+      font-size: 18px;
+      font-weight: 700;
+      border-radius: var(--radius-md);
+      text-decoration: none;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .btn-portal:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-sm);
+    }
+    .btn-citizen {
+      background: var(--danger);
+      color: #ffffff;
+    }
+    .btn-citizen:hover {
+      background: #b91c1c;
+    }
+    .btn-coordinator {
+      background: var(--primary);
+      color: #ffffff;
+    }
+    .btn-coordinator:hover {
+      background: var(--primary-hover);
+    }
+  </style>
 </head>
 <body>
-  <header class="app-header">
-    <div class="header-brand">
-      <div class="brand-logo">🌊</div>
-      <div>
-        <h1>RippleMesh</h1>
-        <p class="tagline">Decentralized Mesh Disaster Coordination</p>
-      </div>
-    </div>
-    <div class="network-status" id="network-badge">
-      <span class="status-dot"></span> Offline Mesh Ready
-    </div>
-  </header>
+  <div class="landing-wrapper">
+    <div class="landing-card">
+      <div class="landing-logo">🌊</div>
+      <h1 class="landing-title">RippleMesh</h1>
+      <p class="landing-desc">
+        Decentralized mesh emergency intelligence & disaster response platform. 
+        Select your portal below:
+      </p>
 
-  <nav class="tab-nav">
-    <button class="tab-btn active" id="tab-btn-coordinator" onclick="switchTab('coordinator')">
-      📋 Coordinator Dashboard
-    </button>
-    <button class="tab-btn" id="tab-btn-report" onclick="switchTab('report')">
-      📢 Citizen Report
-    </button>
-    <button class="tab-btn" id="tab-btn-log" onclick="switchTab('log')">
-      ⚡ Agent Log
-    </button>
-  </nav>
-
-  <main class="main-container">
-    <!-- TAB 1: Citizen Report -->
-    <section id="tab-report" class="tab-content">
-      <div class="card form-card">
-        <h2>Submit Field Report</h2>
-        <p class="text-muted">Broadcast emergency hazard observations across the local mesh network.</p>
-
-        <form id="report-form" onsubmit="handleReportSubmit(event)">
-          <div class="form-group">
-            <label for="device_id">Device ID</label>
-            <input type="text" id="device_id" name="device_id" value="citizen-1" required>
-          </div>
-
-          <div class="form-group">
-            <label for="transcript">What is happening?</label>
-            <textarea id="transcript" name="transcript" rows="3" placeholder="Describe the hazard, water level, people at risk..." required></textarea>
-          </div>
-
-          <div class="grid-2">
-            <div class="form-group">
-              <label for="lat">Latitude</label>
-              <input type="number" step="any" id="lat" name="lat" value="15.8523" required>
-            </div>
-            <div class="form-group">
-              <label for="lng">Longitude</label>
-              <input type="number" step="any" id="lng" name="lng" value="74.5085" required>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label for="capture_mode">Capture Mode</label>
-            <select id="capture_mode" name="capture_mode">
-              <option value="in_app" selected>In-App (Live Camera Stamp)</option>
-              <option value="gallery">Gallery (Pre-existing Photo)</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="image">Hazard Photo</label>
-            <input type="file" id="image" name="image" accept="image/*" capture="environment" onchange="previewImage(event)">
-            <div id="image-preview-container" class="preview-box hidden">
-              <img id="image-preview" src="" alt="Photo preview">
-              <button type="button" class="btn-sm btn-subtle" onclick="clearImagePreview()">Remove Photo</button>
-            </div>
-          </div>
-
-          <div class="form-actions">
-            <button type="submit" id="btn-submit-report" class="btn btn-primary btn-large">
-              Send Emergency Report
-            </button>
-          </div>
-        </form>
-
-        <div id="report-loading" class="spinner-container hidden">
-          <div class="spinner"></div>
-          <div class="spinner-text">Agents are working...</div>
-          <p class="text-sm text-muted">Running vision analysis, verification, corroboration, triage, and task dispatch.</p>
-        </div>
-
-        <div id="report-result" class="result-box hidden"></div>
-      </div>
-    </section>
-
-    <!-- TAB 2: Coordinator Dashboard -->
-    <section id="tab-coordinator" class="tab-content active">
-      <div class="dashboard-header">
-        <div>
-          <h2>Active Corroborated Incidents</h2>
-          <p class="text-muted">Prioritized by urgency, vulnerability, and confidence. Auto-refreshes every 5s.</p>
-        </div>
-        <div class="actions-row">
-          <button class="btn btn-secondary" onclick="fetchIncidents()">🔄 Refresh</button>
-        </div>
-      </div>
-
-      <div id="notification-bar" class="notification-bar hidden"></div>
-
-      <div id="incidents-container" class="incidents-list">
-        <div class="empty-state">Loading incidents...</div>
-      </div>
-    </section>
-
-    <!-- TAB 3: Agent Log -->
-    <section id="tab-log" class="tab-content">
-      <div class="dashboard-header">
-        <div>
-          <h2>Autonomous Agent Communication Bus</h2>
-          <p class="text-muted">Live inter-agent message logs across local devices. Auto-refreshes every 3s.</p>
-        </div>
-        <div class="actions-row">
-          <button class="btn btn-secondary" onclick="fetchMessages()">🔄 Refresh</button>
-        </div>
-      </div>
-
-      <div class="card log-card">
-        <div class="log-table-header">
-          <span class="col-time">Time</span>
-          <span class="col-route">Route</span>
-          <span class="col-type">Type</span>
-          <span class="col-ref">Ref ID</span>
-          <span class="col-bytes">Bytes</span>
-        </div>
-        <div id="messages-container" class="messages-list">
-          <div class="empty-state">Loading agent messages...</div>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <!-- Incident Details Modal -->
-  <div id="details-modal" class="modal-overlay hidden" onclick="closeModalOnOverlay(event)">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3 id="modal-title">Incident Details</h3>
-        <button class="btn-close" onclick="closeModal()">✕</button>
-      </div>
-      <div id="modal-body" class="modal-body">
-        <div class="empty-state">Loading details...</div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+      <div class="portal-options">
+        <a href="/citizen/" class="btn-portal btn-citizen">
+          📢 Report an emergency
+        </a>
+        <a href="/coordinator/" class="btn-portal btn-coordinator">
+          🛡️ Control room login
+        </a>
       </div>
     </div>
   </div>
-
-  <script src="app.js"></script>
 </body>
 </html>

@@ -1,9 +1,10 @@
 """Routes for incident management, clustering, and review."""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 import uuid
 from backend.db.database import get_db
+from backend.services.auth import require_coordinator
 
 router = APIRouter(prefix="/incidents", tags=["Incidents"])
 
@@ -13,7 +14,7 @@ class IncidentCreate(BaseModel):
     lng: Optional[float] = Field(None, example=74.5085)
 
 @router.get("/", response_model=List[Dict[str, Any]])
-def list_incidents(include_closed: bool = False):
+def list_incidents(include_closed: bool = False, session: Dict[str, Any] = Depends(require_coordinator)):
     """All incidents sorted by priority_score descending with comprehensive summary fields.
     Excludes status 'resolved', 'rejected', and 'false_alarm' by default; add ?include_closed=true to include them.
     """
@@ -59,7 +60,7 @@ def list_incidents(include_closed: bool = False):
         return rows
 
 @router.get("/{incident_id}")
-def get_incident_provenance(incident_id: str):
+def get_incident_provenance(incident_id: str, session: Dict[str, Any] = Depends(require_coordinator)):
     """Provenance chain: every report, each verification note, triage reasoning, and dispatches."""
     with get_db() as conn:
         cursor_inc = conn.execute("SELECT * FROM incidents WHERE incident_id = ?", (incident_id,))

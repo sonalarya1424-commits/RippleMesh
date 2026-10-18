@@ -91,12 +91,81 @@ def list_reports(limit: int = 50):
         )
         return [dict(row) for row in cursor.fetchall()]
 
-@router.get("/reports/{report_id}")
-def get_report(report_id: str):
-    """Retrieve a single report by ID."""
+@router.get("/report-status/{report_id}")
+def get_report_status(report_id: str):
+    """Returns ONLY plain high-level status for citizens: received | verified | help_being_arranged | dismissed | resolved.
+    Exposes no scores, confidence, trust, priority, coordinates, or incident IDs.
+    """
     with get_db() as conn:
-        cursor = conn.execute("SELECT * FROM reports WHERE report_id = ?", (report_id,))
-        row = cursor.fetchone()
-        if not row:
+        # Check if report exists
+        cur_rep = conn.execute("SELECT report_id, hazard_type FROM reports WHERE report_id = ?", (report_id,))
+        rep = cur_rep.fetchone()
+        if not rep:
             raise HTTPException(status_code=404, detail="Report not found")
-        return dict(row)
+        rep_dict = dict(rep)
+
+        if rep_dict.get("hazard_type") == "none":
+            return {
+                "status": "dismissed",
+                "message": "No emergency hazard was visible in your submission. Report dismissed."
+            }
+
+        # Check associated incident and dispatch
+        cur_inc = conn.execute(
+            """
+            SELECT i.incident_id, i.status as inc_status, d.approval_status, d.outcome
+            FROM incident_reports ir
+            JOIN incidents i ON ir.incident_id = i.incident_id
+            LEFT JOIN dispatches d ON i.incident_id = d.incident_id
+            WHERE ir.report_id = ?
+            ORDER BY d.dispatched_at DESC
+            LIMIT 1
+            """,
+            (report_id,)
+        )
+        row = cur_inc.fetchone()
+
+        if not row:
+            # Check verification
+            cur_ver = conn.execute("SELECT verification_id FROM verifications WHERE report_id = ?", (report_id,))
+            ver = cur_ver.fetchone()
+            if ver:
+                return {
+                    "status": "verified",
+                    "message": "Your report has been verified by autonomous field agents."
+                }
+            return {
+                "status": "received",
+                "message": "Your report has been received and is queued for verification."
+            }
+
+        inc_data = dict(row)
+        outcome = inc_data.get("outcome")
+        approval = inc_data.get("approval_status")
+        inc_status = inc_data.get("inc_status")
+
+        if outcome == "resolved" or inc_status == "resolved":
+            return {
+                "status": "resolved",
+                "message": "The situation has been attended to and resolved by field teams."
+            }
+        if outcome == "false_alarm" or inc_status in ("false_alarm", "rejected"):
+            return {
+                "status": "dismissed",
+                "message": "The incident report has been reviewed and closed."
+            }
+        if approval in ("approved", "edited", "auto_alerted") or inc_status == "dispatched":
+            return {
+                "status": "help_being_arranged",
+                "message": "Emergency response personnel have been dispatched to the scene."
+            }
+        if inc_status in ("triaged", "new"):
+            return {
+                "status": "help_being_arranged",
+                "message": "Control room is prioritizing your incident and coordinating rescue resources."
+            }
+
+        return {
+            "status": "verified",
+            "message": "Your report has been verified and merged into local situation awareness."
+        }

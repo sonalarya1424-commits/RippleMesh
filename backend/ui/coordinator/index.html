@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coordinator Control Room - RippleMesh</title>
+  <link rel="stylesheet" href="/ui-static/style.css">
+  <style>
+    .auth-overlay {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 80vh;
+      padding: 20px;
+    }
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Login Screen -->
+  <div id="login-section" class="auth-overlay">
+    <div class="card form-card" style="max-width: 420px; width:100%;">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <div style="font-size: 40px; margin-bottom: 8px;">🛡️</div>
+        <h2>Control Room Login</h2>
+        <p class="text-muted text-sm">Coordinator PIN authorization required.</p>
+      </div>
+
+      <form id="login-form" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label for="coord-name">Coordinator Name / Call-Sign</label>
+          <input type="text" id="coord-name" name="name" value="Commander Rao" required>
+        </div>
+
+        <div class="form-group">
+          <label for="coord-pin">Security PIN</label>
+          <input type="password" id="coord-pin" name="pin" placeholder="Enter PIN" required>
+        </div>
+
+        <div id="login-error" class="result-box error hidden" style="margin-bottom: 14px; padding: 10px;"></div>
+
+        <button type="submit" id="btn-login" class="btn btn-primary btn-large">
+          Authenticate & Enter
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Dashboard Screen (Hidden until authenticated) -->
+  <div id="dashboard-section" class="hidden">
+    <header class="app-header">
+      <div class="header-brand">
+        <div class="brand-logo">🌊</div>
+        <div>
+          <h1>RippleMesh Control Room</h1>
+          <p class="tagline">Decentralized Emergency Dispatch</p>
+        </div>
+      </div>
+      <div class="user-info">
+        <span>Logged in as: <strong id="logged-user-name">Coordinator</strong></span>
+        <button class="btn btn-sm btn-subtle" onclick="handleLogout()">Logout</button>
+      </div>
+    </header>
+
+    <nav class="tab-nav">
+      <button class="tab-btn active" id="tab-btn-dashboard" onclick="switchCoordinatorTab('dashboard')">
+        📋 Corroborated Incidents
+      </button>
+      <button class="tab-btn" id="tab-btn-log" onclick="switchCoordinatorTab('log')">
+        ⚡ Agent Activity Bus
+      </button>
+    </nav>
+
+    <main class="main-container">
+      <!-- Sub-tab 1: Incidents Dashboard -->
+      <section id="tab-dashboard" class="tab-content active">
+        <div class="dashboard-header">
+          <div>
+            <h2>Active Corroborated Incidents</h2>
+            <p class="text-muted">Ranked by priority score. Auto-refreshes every 5s.</p>
+          </div>
+          <div class="actions-row">
+            <button class="btn btn-secondary" onclick="fetchIncidents()">🔄 Refresh</button>
+          </div>
+        </div>
+
+        <div id="notification-bar" class="notification-bar hidden"></div>
+
+        <div id="incidents-container" class="incidents-list">
+          <div class="empty-state">Loading incidents...</div>
+        </div>
+      </section>
+
+      <!-- Sub-tab 2: Agent Bus Log -->
+      <section id="tab-log" class="tab-content">
+        <div class="dashboard-header">
+          <div>
+            <h2>Autonomous Agent Communication Bus</h2>
+            <p class="text-muted">Live inter-agent message logs across mesh nodes. Auto-refreshes every 3s.</p>
+          </div>
+          <div class="actions-row">
+            <button class="btn btn-secondary" onclick="fetchMessages()">🔄 Refresh</button>
+          </div>
+        </div>
+
+        <div class="card log-card">
+          <div class="log-table-header">
+            <span class="col-time">Time</span>
+            <span class="col-route">Route</span>
+            <span class="col-type">Type</span>
+            <span class="col-ref">Ref ID</span>
+            <span class="col-bytes">Bytes</span>
+          </div>
+          <div id="messages-container" class="messages-list">
+            <div class="empty-state">Loading agent messages...</div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Incident Details Modal -->
+    <div id="details-modal" class="modal-overlay hidden" onclick="closeModalOnOverlay(event)">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="modal-title">Incident Details</h3>
+          <button class="btn-close" onclick="closeModal()">✕</button>
+        </div>
+        <div id="modal-body" class="modal-body">
+          <div class="empty-state">Loading details...</div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
