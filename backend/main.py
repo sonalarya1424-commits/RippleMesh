@@ -37,6 +37,18 @@ app.include_router(incidents_router)
 app.include_router(dispatch_router)
 app.include_router(messages_router)
 
+from pathlib import Path
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
+
+UI_DIR = Path(__file__).resolve().parent / "ui"
+UI_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/ui", StaticFiles(directory=str(UI_DIR), html=True), name="ui")
+
+@app.get("/", include_in_schema=False)
+def root_redirect():
+    return RedirectResponse(url="/ui/")
+
 @app.get("/health", tags=["System"])
 def health_check():
     """Health status and current agent configuration."""

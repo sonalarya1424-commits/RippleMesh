@@ -1,5 +1,5 @@
 """Routes for viewing inter-agent message logs and communication activity."""
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 from typing import Dict, Any, List
 from backend.services.messaging import message_bus
@@ -24,6 +24,6 @@ def send_agent_message(data: AgentMessageCreate):
     return {"id": msg_id, "status": "published"}
 
 @router.get("/", response_model=List[Dict[str, Any]])
-def list_messages(limit: int = 50):
-    """Retrieve logged messages between autonomous agents."""
+def list_messages(limit: int = Query(50, ge=1, le=500)):
+    """Retrieve logged messages between autonomous agents, newest first."""
     return message_bus.get_messages(limit=limit)

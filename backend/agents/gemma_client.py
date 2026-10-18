@@ -58,7 +58,8 @@ def ask_gemma(
     image_path: Optional[str] = None,
     json_mode: bool = False,
     thinking: bool = False,
-    num_predict: Optional[int] = None
+    num_predict: Optional[int] = None,
+    json_schema: Optional[Dict[str, Any]] = None
 ) -> Union[str, Dict[str, Any]]:
     """Query Gemma via Ollama or return realistic mock data if config.MOCK_MODE is enabled.
 
@@ -68,6 +69,8 @@ def ask_gemma(
         image_path: Optional path to an image file for multimodal inspection.
         json_mode: When True, extracts and parses the JSON response from the output.
         thinking: Whether to enable thinking mode in Ollama.
+        num_predict: Optional limit on generated tokens.
+        json_schema: Optional JSON schema for Ollama structured outputs (passed as `format`).
 
     Returns:
         String response or parsed dictionary (if json_mode is True).
@@ -79,6 +82,25 @@ def ask_gemma(
         latency = time.time() - t0
         print(f"[ask_gemma] (MOCK_MODE=True) Latency: {latency:.4f}s")
         if json_mode:
+            # If normal image or clear/routine patrol text is tested in mock mode
+            is_normal = False
+            if image_path and "normal" in image_path.lower():
+                is_normal = True
+            if "clear" in user_text.lower() or "routine" in user_text.lower():
+                is_normal = True
+
+            if is_normal and "Coordinator" not in system_prompt:
+                return {
+                    "hazard_detected": False,
+                    "hazard_type": "none",
+                    "severity": "none",
+                    "description": "Routine street scene with no visible disaster or hazard.",
+                    "people_at_risk": 0,
+                    "vulnerable": [],
+                    "confidence": 0.85,
+                    "notes": "Mock response: normal scene"
+                }
+
             return {
                 "hazard_detected": True,
                 "hazard_type": "flood",
@@ -105,29 +127,44 @@ def ask_gemma(
         user_message
     ]
 
-    def _call_ollama(use_think: bool) -> str:
+    def _call_ollama(use_think: bool, use_format: bool = True) -> str:
         call_kwargs: Dict[str, Any] = {
             "model": config.MODEL_NAME,
             "messages": messages,
         }
         if num_predict is not None:
             call_kwargs["options"] = {"num_predict": num_predict}
-        if use_think:
-            call_kwargs["think"] = True
+        call_kwargs["think"] = True if use_think else False
+        if json_mode and use_format:
+            if json_schema is not None:
+                call_kwargs["format"] = json_schema
+            else:
+                call_kwargs["format"] = "json"
 
         try:
             res = ollama.chat(**call_kwargs)
             return res["message"]["content"]
         except TypeError as e:
-            # If the think argument raises an error (e.g. unexpected keyword argument), retry without it
-            if use_think and "think" in str(e):
+            # If format or think argument raises an error, retry with graceful degradation
+            if use_format and "format" in str(e):
+                call_kwargs.pop("format", None)
+                res = ollama.chat(**call_kwargs)
+                return res["message"]["content"]
+            if "think" in str(e):
                 call_kwargs.pop("think", None)
                 res = ollama.chat(**call_kwargs)
                 return res["message"]["content"]
             raise
         except Exception as e:
-            # If ollama server rejects 'think' parameter or option
-            if use_think:
+            # If ollama server rejects 'format' or 'think' parameter or option
+            if use_format and ("format" in str(e).lower() or "schema" in str(e).lower()):
+                call_kwargs.pop("format", None)
+                try:
+                    res = ollama.chat(**call_kwargs)
+                    return res["message"]["content"]
+                except Exception:
+                    pass
+            if "think" in str(e).lower():
                 call_kwargs.pop("think", None)
                 res = ollama.chat(**call_kwargs)
                 return res["message"]["content"]

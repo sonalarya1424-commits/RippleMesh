@@ -138,29 +138,67 @@ def dispatch(incident_id: str) -> List[Dict[str, Any]]:
 
     created_dispatches = []
 
-    with get_db() as conn:
-        # Standard pending dispatch
-        d_pending_id = f"dsp-{uuid.uuid4().hex[:8]}"
-        conn.execute(
-            """
-            INSERT INTO dispatches (dispatch_id, incident_id, responder_id, approval_status, task_card)
-            VALUES (?, ?, ?, 'pending', ?)
-            """,
-            (d_pending_id, incident_id, responder_id, card_json),
-        )
-        created_dispatches.append({"dispatch_id": d_pending_id, "status": "pending"})
+    created_dispatches = []
 
-        # If life_threat is 'now', also create 'auto_alerted' dispatch
-        if life_threat == "now":
-            d_alert_id = f"dsp-{uuid.uuid4().hex[:8]}"
+    with get_db() as conn:
+        # Check if an existing pending dispatch already exists for this incident
+        cursor_existing = conn.execute(
+            "SELECT dispatch_id FROM dispatches WHERE incident_id = ? AND approval_status = 'pending'",
+            (incident_id,)
+        )
+        existing_row = cursor_existing.fetchone()
+
+        if existing_row:
+            d_pending_id = existing_row[0]
+            conn.execute(
+                """
+                UPDATE dispatches
+                SET responder_id = ?, task_card = ?
+                WHERE dispatch_id = ?
+                """,
+                (responder_id, card_json, d_pending_id),
+            )
+            created_dispatches.append({"dispatch_id": d_pending_id, "status": "pending", "updated": True})
+        else:
+            # Standard pending dispatch
+            d_pending_id = f"dsp-{uuid.uuid4().hex[:8]}"
             conn.execute(
                 """
                 INSERT INTO dispatches (dispatch_id, incident_id, responder_id, approval_status, task_card)
-                VALUES (?, ?, ?, 'auto_alerted', ?)
+                VALUES (?, ?, ?, 'pending', ?)
                 """,
-                (d_alert_id, incident_id, responder_id, card_json),
+                (d_pending_id, incident_id, responder_id, card_json),
             )
-            created_dispatches.append({"dispatch_id": d_alert_id, "status": "auto_alerted"})
+            created_dispatches.append({"dispatch_id": d_pending_id, "status": "pending"})
+
+        # If life_threat is 'now', also create 'auto_alerted' dispatch if not already alerted
+        if life_threat == "now":
+            cursor_alert = conn.execute(
+                "SELECT dispatch_id FROM dispatches WHERE incident_id = ? AND approval_status = 'auto_alerted'",
+                (incident_id,)
+            )
+            existing_alert = cursor_alert.fetchone()
+            if existing_alert:
+                d_alert_id = existing_alert[0]
+                conn.execute(
+                    """
+                    UPDATE dispatches
+                    SET responder_id = ?, task_card = ?
+                    WHERE dispatch_id = ?
+                    """,
+                    (responder_id, card_json, d_alert_id),
+                )
+                created_dispatches.append({"dispatch_id": d_alert_id, "status": "auto_alerted", "updated": True})
+            else:
+                d_alert_id = f"dsp-{uuid.uuid4().hex[:8]}"
+                conn.execute(
+                    """
+                    INSERT INTO dispatches (dispatch_id, incident_id, responder_id, approval_status, task_card)
+                    VALUES (?, ?, ?, 'auto_alerted', ?)
+                    """,
+                    (d_alert_id, incident_id, responder_id, card_json),
+                )
+                created_dispatches.append({"dispatch_id": d_alert_id, "status": "auto_alerted"})
 
     # Send DISPATCH_PROPOSED message from "dispatcher" to "human_coordinator"
     send_message(

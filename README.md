@@ -75,3 +75,52 @@ To download and sample 15 images per class (earthquake, fire, flood, landslide, 
 ```bash
 python scripts/get_dataset.py
 ```
+
+---
+
+## 4. API Endpoints & cURL Examples
+
+### Health Check
+```bash
+curl -X GET "http://localhost:8000/health"
+```
+
+### Submit Distress Report (Multipart Ingestion & Pipeline)
+```bash
+curl -X POST "http://localhost:8000/report" \
+  -F "device_id=node-belagavi-01" \
+  -F "transcript=water rising near bridge, elderly person trapped" \
+  -F "lat=15.8523" \
+  -F "lng=74.5085" \
+  -F "capture_mode=in_app" \
+  -F "image=@test_images/flood/flood1408.jpg"
+```
+
+### List Prioritized Incidents
+```bash
+curl -X GET "http://localhost:8000/incidents"
+```
+
+### Incident Provenance Chain
+```bash
+curl -X GET "http://localhost:8000/incidents/{incident_id}"
+```
+
+### Approve / Edit / Reject Dispatch
+```bash
+curl -X POST "http://localhost:8000/dispatch/{dispatch_id}/approve" \
+  -H "Content-Type: application/json" \
+  -d '{"action": "approve", "approver": "Commander Rao"}'
+```
+
+### Record Mission Outcome
+```bash
+curl -X POST "http://localhost:8000/dispatch/{dispatch_id}/outcome" \
+  -H "Content-Type: application/json" \
+  -d '{"outcome": "resolved"}'
+```
+
+### Retrieve Inter-Agent Message Logs
+```bash
+curl -X GET "http://localhost:8000/messages?limit=50"
+```

@@ -17,112 +17,175 @@ from backend.agents.coordinator import triage
 from backend.agents.dispatcher import dispatch
 
 def run_real_triage():
-    test_incident_id = "inc-real-roof-test"
-    test_report_id = "rep-real-roof-test"
-    test_device_id = "dev-real-roof-test"
-
-    print("=" * 65)
+    print("=" * 70)
     print("Running Coordinator Real Triage Test (MOCK_MODE=False)")
-    print("Transcript: 'elderly woman stuck on roof, water rising'")
-    print("=" * 65)
+    print("Comparing:")
+    print("  Incident A: 1 report, 'a man is drowning near the bridge, he is going under'")
+    print("  Incident B: 500 distinct devices, 'a girl is standing near the flood water at the edge'")
+    print("=" * 70)
+
+    inc_a_id = "inc-real-test-A"
+    rep_a_id = "rep-real-test-A"
+    dev_a_id = "dev-real-test-A"
+
+    inc_b_id = "inc-real-test-B"
+    rep_b_id = "rep-real-test-B"
+    dev_b_id = "dev-real-test-B"
+
+    # Clean up prior test rows
+    with get_db() as conn:
+        for inc_id in [inc_a_id, inc_b_id]:
+            conn.execute("DELETE FROM triage WHERE incident_id = ?", (inc_id,))
+            conn.execute("DELETE FROM dispatches WHERE incident_id = ?", (inc_id,))
+            conn.execute("DELETE FROM incident_reports WHERE incident_id = ?", (inc_id,))
+            conn.execute("DELETE FROM incidents WHERE incident_id = ?", (inc_id,))
+            conn.execute("DELETE FROM agent_messages WHERE ref_id = ?", (inc_id,))
+        for rep_id in [rep_a_id, rep_b_id]:
+            conn.execute("DELETE FROM reports WHERE report_id = ?", (rep_id,))
+            conn.execute("DELETE FROM verifications WHERE report_id = ?", (rep_id,))
+        for dev_id in [dev_a_id, dev_b_id]:
+            conn.execute("DELETE FROM devices WHERE device_id = ?", (dev_id,))
+
+        # Setup Incident A: 1 report, transcript "a man is drowning near the bridge, he is going under"
+        # Confidence calculated with confidence(independent_reports=1, avg_trust=0.8) -> ~0.62
+        conf_a = confidence(independent_reports=1, avg_trust=0.8)
+        conn.execute(
+            "INSERT INTO devices (device_id, role, display_name, last_lat, last_lng) VALUES (?, 'mesh_node', 'Node A', 15.8523, 74.5085)",
+            (dev_a_id,)
+        )
+        conn.execute(
+            """
+            INSERT INTO reports (
+                report_id, device_id, lat, lng, hazard_type, summary, transcript,
+                reporter_conf, capture_mode, claim_matches_photo, people_at_risk, vulnerable, time_to_harm_guess
+            )
+            VALUES (?, ?, 15.8523, 74.5085, 'flood', 'man drowning',
+                    'a man is drowning near the bridge, he is going under', 0.8, 'in_app', 0.8, 1, '[]', 'seconds')
+            """,
+            (rep_a_id, dev_a_id),
+        )
+        conn.execute(
+            """
+            INSERT INTO verifications (verification_id, report_id, trust_score, in_app_capture, claim_photo_match, notes)
+            VALUES (?, ?, 0.8, 1, 0.8, 'Direct visual confirmation of drowning person.')
+            """,
+            (f"ver-{rep_a_id}", rep_a_id),
+        )
+        conn.execute(
+            """
+            INSERT INTO incidents (
+                incident_id, hazard_type, lat, lng, first_reported_at, last_updated_at,
+                independent_reports, confidence, status, priority_score, unverified
+            )
+            VALUES (?, 'flood', 15.8523, 74.5085, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, ?, 'new', 0.0, 0)
+            """,
+            (inc_a_id, conf_a),
+        )
+        conn.execute(
+            "INSERT INTO incident_reports (incident_id, report_id, independent) VALUES (?, ?, 1)",
+            (inc_a_id, rep_a_id),
+        )
+
+        # Setup Incident B: 500 distinct devices, transcript "a girl is standing near the flood water at the edge"
+        # Confidence calculated with confidence(independent_reports=500, avg_trust=0.8) -> ~0.92
+        conf_b = confidence(independent_reports=500, avg_trust=0.8)
+        conn.execute(
+            "INSERT INTO devices (device_id, role, display_name, last_lat, last_lng) VALUES (?, 'mesh_node', 'Node B', 15.8530, 74.5090)",
+            (dev_b_id,)
+        )
+        conn.execute(
+            """
+            INSERT INTO reports (
+                report_id, device_id, lat, lng, hazard_type, summary, transcript,
+                reporter_conf, capture_mode, claim_matches_photo, people_at_risk, vulnerable, time_to_harm_guess
+            )
+            VALUES (?, ?, 15.8530, 74.5090, 'flood', 'girl standing near flood',
+                    'a girl is standing near the flood water at the edge', 0.8, 'in_app', 0.8, 1, '[\"child\"]', 'hours')
+            """,
+            (rep_b_id, dev_b_id),
+        )
+        conn.execute(
+            """
+            INSERT INTO verifications (verification_id, report_id, trust_score, in_app_capture, claim_photo_match, notes)
+            VALUES (?, ?, 0.8, 1, 0.8, 'Multiple reports confirm girl standing safely at perimeter.')
+            """,
+            (f"ver-{rep_b_id}", rep_b_id),
+        )
+        conn.execute(
+            """
+            INSERT INTO incidents (
+                incident_id, hazard_type, lat, lng, first_reported_at, last_updated_at,
+                independent_reports, confidence, status, priority_score, unverified
+            )
+            VALUES (?, 'flood', 15.8530, 74.5090, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 500, ?, 'new', 0.0, 0)
+            """,
+            (inc_b_id, conf_b),
+        )
+        conn.execute(
+            "INSERT INTO incident_reports (incident_id, report_id, independent) VALUES (?, ?, 1)",
+            (inc_b_id, rep_b_id),
+        )
 
     try:
+        print("\n--- Triaging Incident A with Real Gemma ---")
+        triage_a = triage(inc_a_id)
+
+        print("\n--- Triaging Incident B with Real Gemma ---")
+        triage_b = triage(inc_b_id)
+
         with get_db() as conn:
-            # Clean up prior instance if exists
-            conn.execute("DELETE FROM triage WHERE incident_id = ?", (test_incident_id,))
-            conn.execute("DELETE FROM dispatches WHERE incident_id = ?", (test_incident_id,))
-            conn.execute("DELETE FROM incident_reports WHERE incident_id = ?", (test_incident_id,))
-            conn.execute("DELETE FROM reports WHERE report_id = ?", (test_report_id,))
-            conn.execute("DELETE FROM incidents WHERE incident_id = ?", (test_incident_id,))
-            conn.execute("DELETE FROM devices WHERE device_id = ?", (test_device_id,))
-            conn.execute("DELETE FROM agent_messages WHERE ref_id = ?", (test_incident_id,))
+            row_a = dict(conn.execute("SELECT * FROM incidents WHERE incident_id = ?", (inc_a_id,)).fetchone())
+            row_b = dict(conn.execute("SELECT * FROM incidents WHERE incident_id = ?", (inc_b_id,)).fetchone())
 
-            # Insert device
-            conn.execute(
-                "INSERT INTO devices (device_id, role, display_name, last_lat, last_lng) VALUES (?, 'mesh_node', 'Roof Node', 15.8582, 74.5028)",
-                (test_device_id,)
-            )
+        score_a = row_a["priority_score"]
+        score_b = row_b["priority_score"]
 
-            # Insert single report
-            conn.execute(
-                """
-                INSERT INTO reports (
-                    report_id, device_id, lat, lng, hazard_type, summary, transcript,
-                    reporter_conf, capture_mode, claim_matches_photo, people_at_risk, vulnerable, time_to_harm_guess
-                )
-                VALUES (?, ?, 15.8582, 74.5028, 'flood', 'elderly woman on roof',
-                        'elderly woman stuck on roof, water rising', 0.8, 'in_app', 0.8, 1, '[\"elderly\"]', 'minutes')
-                """,
-                (test_report_id, test_device_id),
-            )
+        print("\n" + "=" * 70)
+        print("REAL GEMMA TRIAGE RESULTS")
+        print("=" * 70)
+        print("INCIDENT A (Man Drowning - 1 Report):")
+        print(f"  life_threat     : {triage_a.get('life_threat')}")
+        print(f"  time_to_harm    : {triage_a.get('time_to_harm')}")
+        print(f"  responder_type  : {triage_a.get('responder_type')}")
+        print(f"  reasoning       : {triage_a.get('reasoning')}")
+        print(f"  model_used      : {triage_a.get('model_used')}")
+        print(f"  confidence      : {row_a['confidence']}")
+        print(f"  priority_score  : {score_a}")
+        if triage_a.get('model_used') == "fallback-defaults":
+            print("  [NOTE: Incident A used fallback-defaults!]")
 
-            # Insert verification
-            conn.execute(
-                """
-                INSERT INTO verifications (verification_id, report_id, trust_score, in_app_capture, claim_photo_match, notes)
-                VALUES (?, ?, 0.82, 1, 0.8, 'In-app report. Water level rising fast.')
-                """,
-                (f"ver-{test_report_id}", test_report_id),
-            )
+        print("\nINCIDENT B (Girl Standing - 500 Reports):")
+        print(f"  life_threat     : {triage_b.get('life_threat')}")
+        print(f"  time_to_harm    : {triage_b.get('time_to_harm')}")
+        print(f"  responder_type  : {triage_b.get('responder_type')}")
+        print(f"  reasoning       : {triage_b.get('reasoning')}")
+        print(f"  model_used      : {triage_b.get('model_used')}")
+        print(f"  confidence      : {row_b['confidence']}")
+        print(f"  priority_score  : {score_b}")
+        if triage_b.get('model_used') == "fallback-defaults":
+            print("  [NOTE: Incident B used fallback-defaults!]")
 
-            # Insert incident
-            conn.execute(
-                """
-                INSERT INTO incidents (
-                    incident_id, hazard_type, lat, lng, first_reported_at, last_updated_at,
-                    independent_reports, confidence, status, priority_score, unverified
-                )
-                VALUES (?, 'flood', 15.8582, 74.5028, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 0.63, 'new', 0.0, 0)
-                """,
-                (test_incident_id,),
-            )
-
-            conn.execute(
-                "INSERT INTO incident_reports (incident_id, report_id, independent) VALUES (?, ?, 1)",
-                (test_incident_id, test_report_id),
-            )
-
-        # Execute real Gemma triage
-        triage_row = triage(test_incident_id)
-
-        # Retrieve updated incident
-        with get_db() as conn:
-            cursor_inc = conn.execute("SELECT * FROM incidents WHERE incident_id = ?", (test_incident_id,))
-            updated_incident = dict(cursor_inc.fetchone())
-
-        # Also trigger dispatch to verify tactical task card and responder assignment
-        dispatches = dispatch(test_incident_id)
-
-        print("\n--- SAVED TRIAGE ROW ---")
-        for k, v in triage_row.items():
-            print(f"  {k}: {v}")
-
-        print("\n--- UPDATED INCIDENT ---")
-        print(f"  Incident ID: {updated_incident.get('incident_id')}")
-        print(f"  Priority Score: {updated_incident.get('priority_score')}")
-        print(f"  Confidence: {updated_incident.get('confidence')}")
-        print(f"  Status: {updated_incident.get('status')}")
-        print(f"  Unverified: {updated_incident.get('unverified')}")
-
-        print("\n--- DISPATCH ORDERS CREATED ---")
-        for d in dispatches:
-            print(f"  Dispatch ID: {d['dispatch_id']} | Status: {d['status']}")
-
-        print("\n" + "=" * 65)
-        print("Coordinator Real Triage Test Complete!")
-        print("=" * 65)
+        print("\n" + "-" * 70)
+        a_ranks_above_b = score_a > score_b
+        print(f"Incident A ({score_a}) ranks ABOVE Incident B ({score_b}): {a_ranks_above_b}")
+        print("-" * 70)
 
     finally:
         # Clean up test rows
         with get_db() as conn:
-            conn.execute("DELETE FROM triage WHERE incident_id = ?", (test_incident_id,))
-            conn.execute("DELETE FROM dispatches WHERE incident_id = ?", (test_incident_id,))
-            conn.execute("DELETE FROM incident_reports WHERE incident_id = ?", (test_incident_id,))
-            conn.execute("DELETE FROM reports WHERE report_id = ?", (test_report_id,))
-            conn.execute("DELETE FROM verifications WHERE report_id = ?", (test_report_id,))
-            conn.execute("DELETE FROM incidents WHERE incident_id = ?", (test_incident_id,))
-            conn.execute("DELETE FROM devices WHERE device_id = ?", (test_device_id,))
-            conn.execute("DELETE FROM agent_messages WHERE ref_id = ?", (test_incident_id,))
+            for inc_id in [inc_a_id, inc_b_id]:
+                conn.execute("DELETE FROM triage WHERE incident_id = ?", (inc_id,))
+                conn.execute("DELETE FROM dispatches WHERE incident_id = ?", (inc_id,))
+                conn.execute("DELETE FROM incident_reports WHERE incident_id = ?", (inc_id,))
+                conn.execute("DELETE FROM incidents WHERE incident_id = ?", (inc_id,))
+                conn.execute("DELETE FROM agent_messages WHERE ref_id = ?", (inc_id,))
+            for rep_id in [rep_a_id, rep_b_id]:
+                conn.execute("DELETE FROM reports WHERE report_id = ?", (rep_id,))
+                conn.execute("DELETE FROM verifications WHERE report_id = ?", (rep_id,))
+            for dev_id in [dev_a_id, dev_b_id]:
+                conn.execute("DELETE FROM devices WHERE device_id = ?", (dev_id,))
+        print("Cleaned up test rows.")
 
 if __name__ == "__main__":
+    from backend.services.scoring import confidence
     run_real_triage()

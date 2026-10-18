@@ -18,16 +18,66 @@ from backend.services.messaging import send_message
 
 SYSTEM_PROMPT = (
     "You are the Reporter agent in a disaster-response mesh. From the person's message and photo, "
-    "output ONLY JSON: {hazard_type: flood|fire|landslide|earthquake|other, summary: max 25 words, "
+    "output ONLY JSON: {hazard_type: flood|fire|landslide|earthquake|other|none, summary: max 25 words, "
     "people_at_risk: true|false, vulnerable: [child|elderly|injured|disabled], "
     "time_to_harm_guess: seconds|minutes|hours, reporter_conf: 0-1, claim_matches_photo: 0-1, notes: string}. "
     "If the photo contradicts what the person said, set claim_matches_photo low and explain in notes. "
     "Never invent details you cannot see or hear. "
-    "people_at_risk must be true ONLY if a person is clearly visible in the photo OR the person's message explicitly mentions someone in danger. Otherwise false. Do not assume. If unsure, use false and lower reporter_conf. Reserve claim_matches_photo above 0.9 and reporter_conf above 0.8 for cases where the photo clearly and specifically confirms every detail in the message. A generic scene match is at most 0.7."
+    "people_at_risk must be true ONLY if a person is clearly visible in the photo OR the person's message explicitly mentions someone in danger. Otherwise false. Do not assume. If unsure, use false and lower reporter_conf. Reserve claim_matches_photo above 0.9 and reporter_conf above 0.8 for cases where the photo clearly and specifically confirms every detail in the message. A generic scene match is at most 0.7. "
+    "If the photo shows no disaster or hazard, use hazard_type none."
 )
 
-VALID_HAZARDS = {"flood", "fire", "landslide", "earthquake", "other"}
+VALID_HAZARDS = {"flood", "fire", "landslide", "earthquake", "other", "none"}
 VALID_TIMES = {"seconds", "minutes", "hours"}
+
+REPORTER_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "hazard_type": {
+            "type": "string",
+            "enum": ["flood", "fire", "landslide", "earthquake", "other", "none"]
+        },
+        "summary": {
+            "type": "string"
+        },
+        "people_at_risk": {
+            "type": "boolean"
+        },
+        "vulnerable": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "time_to_harm_guess": {
+            "type": "string",
+            "enum": ["seconds", "minutes", "hours"]
+        },
+        "reporter_conf": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+        },
+        "claim_matches_photo": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+        },
+        "notes": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "hazard_type",
+        "summary",
+        "people_at_risk",
+        "vulnerable",
+        "time_to_harm_guess",
+        "reporter_conf",
+        "claim_matches_photo",
+        "notes"
+    ]
+}
 
 def compute_phash(image_path: Optional[str]) -> Optional[str]:
     """Compute perceptual hash using imagehash library if an image is provided."""
@@ -79,22 +129,30 @@ def create_report(
     if image_path:
         user_prompt += f"\nImage attached: {image_path}"
 
-    # 1. Call ask_gemma with json_mode=True and thinking=False
+    # 1. Call ask_gemma with json_mode=True, thinking=False, and REPORTER_JSON_SCHEMA
     raw_ai_output = ask_gemma(
         system_prompt=SYSTEM_PROMPT,
         user_text=user_prompt,
         image_path=image_path,
         json_mode=True,
-        thinking=False
+        thinking=False,
+        json_schema=REPORTER_JSON_SCHEMA
     )
 
     if not isinstance(raw_ai_output, dict):
         raw_ai_output = {}
 
-    # 2. Validate fields and fill safe defaults
-    hazard_type = str(raw_ai_output.get("hazard_type", "other")).lower()
-    if hazard_type not in VALID_HAZARDS:
-        hazard_type = "other"
+    # 2. Validate fields with lenient mappings and fill safe defaults
+    raw_hazard = str(raw_ai_output.get("hazard_type", "other")).lower().strip()
+    hazard_map = {
+        "flood": "flood", "flooding": "flood", "water": "flood", "submerged": "flood",
+        "fire": "fire", "wildfire": "fire", "flames": "fire", "smoke": "fire",
+        "landslide": "landslide", "mudslide": "landslide",
+        "earthquake": "earthquake", "quake": "earthquake", "tremor": "earthquake",
+        "none": "none", "clear": "none", "safe": "none", "normal": "none", "no hazard": "none",
+        "other": "other"
+    }
+    hazard_type = hazard_map.get(raw_hazard, "other" if raw_hazard not in VALID_HAZARDS else raw_hazard)
 
     summary = str(raw_ai_output.get("summary", transcript_text[:120] if transcript_text else "Disaster observation"))
     # Limit summary to ~25 words
@@ -138,9 +196,13 @@ def create_report(
 
     vulnerable_json = json.dumps(vulnerable_list)
 
-    time_to_harm_guess = str(raw_ai_output.get("time_to_harm_guess", "hours")).lower()
-    if time_to_harm_guess not in VALID_TIMES:
-        time_to_harm_guess = "hours"
+    raw_time_guess = str(raw_ai_output.get("time_to_harm_guess", "hours")).lower().strip()
+    time_guess_map = {
+        "seconds": "seconds", "second": "seconds", "immediate": "seconds",
+        "minutes": "minutes", "minute": "minutes", "soon": "minutes",
+        "hours": "hours", "hour": "hours", "days": "hours"
+    }
+    time_to_harm_guess = time_guess_map.get(raw_time_guess, "hours" if raw_time_guess not in VALID_TIMES else raw_time_guess)
 
     try:
         reporter_conf = float(raw_ai_output.get("reporter_conf", 0.8))
@@ -161,6 +223,12 @@ def create_report(
         vulnerable_json = json.dumps([])
     if not transcript_text or not transcript_text.strip():
         claim_matches_photo = 0.5
+
+    # CODE GUARD: if hazard_type is "none", force people_at_risk to false and vulnerable to []
+    if hazard_type == "none":
+        people_at_risk = 0
+        vulnerable_json = json.dumps([])
+        notes_flag = "hazard_type is none: people_at_risk and vulnerable forced to false/empty"
 
     # Safe capture mode validation
     clean_capture_mode = "in_app" if capture_mode == "in_app" else "gallery"
