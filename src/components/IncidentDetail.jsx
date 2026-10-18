@@ -154,7 +154,13 @@ export function IncidentDetail({
         <div className="detail-header-left">
           <div className="detail-id-row">
             <span className="detail-id-tag font-mono">{incident.id}</span>
-            <span className="simulated-pill">Simulated Scenario</span>
+            {incident.isLocalSubmission ? (
+              <span className="local-queued-badge font-mono" title="Stored in local browser IndexedDB">
+                LOCAL DEMO · QUEUED ON THIS DEVICE
+              </span>
+            ) : (
+              <span className="simulated-pill">Simulated Scenario</span>
+            )}
             <SeverityBadge severity={incident.severity} />
             <StatusBadge status={incident.status} />
           </div>
@@ -221,13 +227,22 @@ export function IncidentDetail({
           </div>
           <p className="summary-paragraph">{incident.summary}</p>
 
+          {incident.peopleAffected !== null && incident.peopleAffected !== undefined && (
+            <div className="people-affected-banner">
+              <Icon name="users" size={15} color="var(--teal-400)" />
+              <span>
+                <strong>Reported People Affected / In Need:</strong> {incident.peopleAffected} {incident.peopleAffected === 1 ? 'person' : 'people'}
+              </span>
+            </div>
+          )}
+
           <div className="location-detail-card">
             <div className="loc-card-row">
               <Icon name="mapPin" size={16} color="var(--teal-400)" />
               <div>
                 <strong>Location:</strong> {incident.location?.name}
                 <div className="font-mono text-xs text-muted">
-                  Simulated Coords: {incident.location?.lat}, {incident.location?.lng}
+                  Coords: {incident.location?.lat}, {incident.location?.lng}
                 </div>
               </div>
             </div>
@@ -257,19 +272,25 @@ export function IncidentDetail({
               <div className="triage-stat-item" title="Simulated urgency priority score">
                 <span className="stat-label">Simulated Urgency</span>
                 <span className="stat-value font-mono text-teal">
-                  {incident.aiTriage?.triageScore || 90} / 100
+                  {incident.aiTriage?.triageScore !== null && incident.aiTriage?.triageScore !== undefined
+                    ? `${incident.aiTriage.triageScore} / 100`
+                    : 'Pending Triage'}
                 </span>
               </div>
               <div className="triage-stat-item" title="Simulated AI confidence in extraction">
                 <span className="stat-label">Sim AI Extraction</span>
                 <span className="stat-value font-mono">
-                  {Math.round((incident.confidenceScore || 0) * 100)}%
+                  {incident.confidenceScore !== null && incident.confidenceScore !== undefined
+                    ? `${Math.round(incident.confidenceScore * 100)}%`
+                    : 'Pending'}
                 </span>
               </div>
               <div className="triage-stat-item" title="Simulated cryptographic trust score">
                 <span className="stat-label">Sim Mesh Trust</span>
                 <span className="stat-value font-mono">
-                  {Math.round((incident.trustScore || 0) * 100)}%
+                  {incident.trustScore !== null && incident.trustScore !== undefined
+                    ? `${Math.round(incident.trustScore * 100)}%`
+                    : 'Local Device'}
                 </span>
               </div>
             </div>
@@ -293,19 +314,43 @@ export function IncidentDetail({
           </div>
         </section>
 
-        {/* Evidence Photo Placeholder / Synthetic Visualizer */}
+        {/* Evidence Photo / Visualizer */}
         <section className="detail-section">
           <div className="section-title-with-icon">
             <Icon name="camera" size={16} color="var(--teal-400)" />
-            <h4 className="detail-subheading">Field Sensor Evidence (Simulated)</h4>
+            <h4 className="detail-subheading">
+              {incident.evidencePhoto?.type === 'user_upload' ? 'Submitted Citizen Photo' : 'Field Sensor Evidence (Simulated)'}
+            </h4>
           </div>
 
           <div className="evidence-graphic-wrapper">
-            {renderEvidenceGraphic(incident.evidencePhoto?.svgType)}
-            <div className="evidence-caption-strip">
-              <span className="caption-text">{incident.evidencePhoto?.caption}</span>
-              <span className="local-photo-tag font-mono">DEMO SENSOR SNAPSHOT</span>
-            </div>
+            {incident.evidencePhoto?.type === 'user_upload' && incident.evidencePhoto?.imageUrl ? (
+              <div className="uploaded-evidence-container">
+                <img
+                  src={incident.evidencePhoto.imageUrl}
+                  alt={incident.evidencePhoto.caption || 'Citizen uploaded evidence photo'}
+                  className="uploaded-evidence-image"
+                />
+                <div className="evidence-caption-strip">
+                  <span className="caption-text">{incident.evidencePhoto.caption}</span>
+                  <span className="local-photo-tag font-mono">LOCAL STORED PHOTO</span>
+                </div>
+              </div>
+            ) : incident.evidencePhoto?.svgType ? (
+              <>
+                {renderEvidenceGraphic(incident.evidencePhoto.svgType)}
+                <div className="evidence-caption-strip">
+                  <span className="caption-text">{incident.evidencePhoto?.caption}</span>
+                  <span className="local-photo-tag font-mono">DEMO SENSOR SNAPSHOT</span>
+                </div>
+              </>
+            ) : (
+              <div className="no-photo-attached-box">
+                <Icon name="image" size={32} color="var(--text-muted)" />
+                <p className="no-photo-main font-mono text-xs">No photo attached to this report</p>
+                <span className="text-muted text-xs">Field observation and location coordinates recorded</span>
+              </div>
+            )}
           </div>
         </section>
 
@@ -316,41 +361,49 @@ export function IncidentDetail({
             <h4 className="detail-subheading">Mesh Voice Telemetry (Simulated)</h4>
           </div>
 
-          <div className="voice-audio-card">
-            <div className="audio-player-control">
-              <button
-                className="play-audio-btn"
-                onClick={() => setIsPlayingAudio(!isPlayingAudio)}
-                aria-label="Play audio transcript"
-              >
-                {isPlayingAudio ? '❚❚' : '▶'}
-              </button>
-              <div className="audio-waveform-visual">
-                <div className={`waveform-bars ${isPlayingAudio ? 'playing' : ''}`}>
-                  <span style={{ height: '35%' }} />
-                  <span style={{ height: '70%' }} />
-                  <span style={{ height: '40%' }} />
-                  <span style={{ height: '90%' }} />
-                  <span style={{ height: '60%' }} />
-                  <span style={{ height: '80%' }} />
-                  <span style={{ height: '45%' }} />
-                  <span style={{ height: '100%' }} />
-                  <span style={{ height: '55%' }} />
-                  <span style={{ height: '75%' }} />
-                  <span style={{ height: '30%' }} />
+          {incident.voiceTranscript ? (
+            <div className="voice-audio-card">
+              <div className="audio-player-control">
+                <button
+                  className="play-audio-btn"
+                  onClick={() => setIsPlayingAudio(!isPlayingAudio)}
+                  aria-label="Play audio transcript"
+                >
+                  {isPlayingAudio ? '❚❚' : '▶'}
+                </button>
+                <div className="audio-waveform-visual">
+                  <div className={`waveform-bars ${isPlayingAudio ? 'playing' : ''}`}>
+                    <span style={{ height: '35%' }} />
+                    <span style={{ height: '70%' }} />
+                    <span style={{ height: '40%' }} />
+                    <span style={{ height: '90%' }} />
+                    <span style={{ height: '60%' }} />
+                    <span style={{ height: '80%' }} />
+                    <span style={{ height: '45%' }} />
+                    <span style={{ height: '100%' }} />
+                    <span style={{ height: '55%' }} />
+                    <span style={{ height: '75%' }} />
+                    <span style={{ height: '30%' }} />
+                  </div>
+                  <div className="audio-timing font-mono">
+                    {isPlayingAudio ? '00:04 / 00:18 (Playing Simulated Audio)' : '00:00 / 00:18 (Simulated Audio)'}
+                  </div>
                 </div>
-                <div className="audio-timing font-mono">
-                  {isPlayingAudio ? '00:04 / 00:18 (Playing Simulated Audio)' : '00:00 / 00:18 (Simulated Audio)'}
-                </div>
+                <span className="format-tag font-mono">Simulated LoRa Voice</span>
               </div>
-              <span className="format-tag font-mono">Simulated LoRa Voice</span>
-            </div>
 
-            <div className="transcript-speech-bubble">
-              <span className="transcript-label font-mono">SIMULATED LOCAL SPEECH-TO-TEXT TRANSCRIPT:</span>
-              <p className="transcript-quote">{incident.voiceTranscript}</p>
+              <div className="transcript-speech-bubble">
+                <span className="transcript-label font-mono">SIMULATED LOCAL SPEECH-TO-TEXT TRANSCRIPT:</span>
+                <p className="transcript-quote">{incident.voiceTranscript}</p>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="voice-audio-card empty-voice-card">
+              <span className="font-mono text-xs text-muted">
+                No voice audio attached. Written citizen report entered via local emergency intake form.
+              </span>
+            </div>
+          )}
         </section>
 
         {/* Witness Information & Provenance History */}

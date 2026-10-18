@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { INITIAL_INCIDENTS } from './data/incidents';
 import { INITIAL_RESPONDERS } from './data/responders';
 import { INITIAL_AGENT_EVENTS } from './data/agentEvents';
@@ -11,6 +11,8 @@ import { AgentActivityFeed } from './components/AgentActivityFeed';
 import { DemoMap } from './components/DemoMap';
 import { RespondersView } from './components/RespondersView';
 import { EditIncidentModal } from './components/EditIncidentModal';
+import { SubmitReportModal } from './components/SubmitReportModal';
+import { getAllLocalReports, updateLocalReport, revokeAllPhotoUrls } from './utils/indexedDB';
 
 export function App() {
   const [incidents, setIncidents] = useState(INITIAL_INCIDENTS);
@@ -21,6 +23,29 @@ export function App() {
   const [listFilter, setListFilter] = useState('all');
   const [editingIncident, setEditingIncident] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+
+  // Restore local IndexedDB reports on mount
+  useEffect(() => {
+    let isMounted = true;
+    getAllLocalReports()
+      .then((storedReports) => {
+        if (!isMounted || !storedReports || storedReports.length === 0) return;
+        setIncidents((prev) => {
+          const existingIds = new Set(prev.map((i) => i.id));
+          const uniqueNew = storedReports.filter((r) => !existingIds.has(r.id));
+          return [...uniqueNew, ...prev];
+        });
+      })
+      .catch((err) => {
+        console.warn('Failed to load local reports from IndexedDB:', err);
+      });
+
+    return () => {
+      isMounted = false;
+      revokeAllPhotoUrls();
+    };
+  }, []);
 
   // Retrieve current selected incident object
   const selectedIncident = incidents.find((inc) => inc.id === selectedIncidentId) || null;
@@ -39,9 +64,41 @@ export function App() {
     }
   };
 
+  const handleReportSubmitted = (newIncident) => {
+    setIncidents((prev) => [newIncident, ...prev]);
+    setSelectedIncidentId(newIncident.id);
+    if (currentView !== 'dashboard' && currentView !== 'incidents') {
+      setCurrentView('incidents');
+    }
+
+    const newEvent = {
+      id: `EVT-${Date.now().toString().slice(-4)}`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      relativeTime: 'Just now',
+      agent: 'Coordinator',
+      agentRole: 'Mission Dispatch & Resource Allocation',
+      type: 'action',
+      badgeColor: 'teal',
+      incidentId: newIncident.id,
+      message: `[LOCAL DEMO] Saved emergency intake report ${newIncident.id} (${newIncident.hazardType}) to local device storage. Awaiting mesh sync / operator review.`,
+      details: `Reported location: ${newIncident.location?.name || 'Local'}. Description: ${(newIncident.summary || '').slice(0, 70)}...`,
+      isSimulated: true
+    };
+    setAgentEvents((prev) => [newEvent, ...prev]);
+  };
+
   const handleApproveIncident = (id) => {
     setIncidents((prev) =>
-      prev.map((inc) => (inc.id === id ? { ...inc, status: 'Approved' } : inc))
+      prev.map((inc) => {
+        if (inc.id === id) {
+          const updated = { ...inc, status: 'Approved' };
+          if (inc.isLocalSubmission) {
+            updateLocalReport(updated).catch(() => {});
+          }
+          return updated;
+        }
+        return inc;
+      })
     );
 
     // Append simulated event to Agent Feed
@@ -63,7 +120,16 @@ export function App() {
 
   const handleRejectIncident = (id) => {
     setIncidents((prev) =>
-      prev.map((inc) => (inc.id === id ? { ...inc, status: 'Rejected' } : inc))
+      prev.map((inc) => {
+        if (inc.id === id) {
+          const updated = { ...inc, status: 'Rejected' };
+          if (inc.isLocalSubmission) {
+            updateLocalReport(updated).catch(() => {});
+          }
+          return updated;
+        }
+        return inc;
+      })
     );
 
     const newEvent = {
@@ -91,6 +157,9 @@ export function App() {
     setIncidents((prev) =>
       prev.map((inc) => (inc.id === updatedIncident.id ? updatedIncident : inc))
     );
+    if (updatedIncident.isLocalSubmission) {
+      updateLocalReport(updatedIncident).catch(() => {});
+    }
 
     const newEvent = {
       id: `EVT-${Date.now().toString().slice(-4)}`,
@@ -351,6 +420,7 @@ export function App() {
         <Navbar
           onSimulateDistress={handleSimulateDistressBurst}
           onResetData={handleResetData}
+          onOpenSubmitModal={() => setIsSubmitModalOpen(true)}
           currentView={currentView}
         />
 
@@ -376,6 +446,7 @@ export function App() {
                   selectedIncidentId={selectedIncidentId}
                   onSelectIncident={handleSelectIncident}
                   initialFilter={listFilter}
+                  onOpenSubmitModal={() => setIsSubmitModalOpen(true)}
                 />
 
                 <IncidentDetail
@@ -413,6 +484,7 @@ export function App() {
                 selectedIncidentId={selectedIncidentId}
                 onSelectIncident={handleSelectIncident}
                 initialFilter={listFilter}
+                onOpenSubmitModal={() => setIsSubmitModalOpen(true)}
               />
 
               <IncidentDetail
@@ -452,6 +524,13 @@ export function App() {
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         onSave={handleSaveEdit}
+      />
+
+      {/* Submit Emergency Report Modal */}
+      <SubmitReportModal
+        isOpen={isSubmitModalOpen}
+        onClose={() => setIsSubmitModalOpen(false)}
+        onReportSubmitted={handleReportSubmitted}
       />
     </div>
   );

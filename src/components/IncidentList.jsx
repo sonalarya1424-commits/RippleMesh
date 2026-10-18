@@ -7,7 +7,8 @@ export function IncidentList({
   incidents = [],
   selectedIncidentId,
   onSelectIncident,
-  initialFilter = 'all'
+  initialFilter = 'all',
+  onOpenSubmitModal
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [severityFilter, setSeverityFilter] = useState(initialFilter === 'critical' ? 'critical' : 'all');
@@ -95,9 +96,21 @@ export function IncidentList({
             <h2 className="section-heading">Ranked Incidents</h2>
             <span className="count-pill">{filteredIncidents.length} of {incidents.length}</span>
           </div>
-          <span className="live-mesh-tag">
-            <span className="mesh-pulse-dot" /> Mesh Ingestion Active
-          </span>
+          <div className="title-actions-row">
+            <span className="live-mesh-tag">
+              <span className="mesh-pulse-dot" /> Mesh Ingestion Active
+            </span>
+            {onOpenSubmitModal && (
+              <button
+                className="btn btn-outline btn-sm btn-list-new-report"
+                onClick={onOpenSubmitModal}
+                title="Submit a new emergency report"
+              >
+                <Icon name="plus" size={13} />
+                + Report Incident
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Filter bar */}
@@ -222,9 +235,20 @@ export function IncidentList({
                   <div className="incident-top-meta">
                     <span className="incident-id-tag">{incident.id}</span>
                     <span className="hazard-type-label">{incident.hazardType}</span>
-                    <span className="simulated-pill" title="Simulated demo incident">SIMULATED</span>
+                    {incident.isLocalSubmission ? (
+                      <span className="local-queued-badge font-mono" title="Stored in local browser IndexedDB">
+                        LOCAL DEMO · QUEUED ON THIS DEVICE
+                      </span>
+                    ) : (
+                      <span className="simulated-pill" title="Simulated demo incident">SIMULATED</span>
+                    )}
                     <SeverityBadge severity={incident.severity} />
                     <StatusBadge status={incident.status} size="sm" />
+                    {incident.evidencePhoto?.type === 'user_upload' && (
+                      <span className="photo-tag font-mono text-xs" title="Evidence photo attached">
+                        <Icon name="camera" size={11} color="var(--teal-400)" /> Photo
+                      </span>
+                    )}
                     <span className="time-ago-tag">
                       <Icon name="clock" size={11} /> {incident.displayTime}
                     </span>
@@ -243,17 +267,37 @@ export function IncidentList({
                     <div className="metric-pill" title="Simulated AI confidence in emergency extraction">
                       <span className="metric-label">Sim Conf:</span>
                       <span className="metric-value font-mono">
-                        {Math.round(incident.confidenceScore * 100)}%
+                        {incident.confidenceScore !== null && incident.confidenceScore !== undefined
+                          ? `${Math.round(incident.confidenceScore * 100)}%`
+                          : 'Pending'}
                       </span>
                     </div>
 
                     {/* Simulated Trust Score */}
                     <div className="metric-pill" title="Simulated cryptographic verification & source reputation">
                       <span className="metric-label">Sim Trust:</span>
-                      <span className={`metric-value font-mono ${incident.trustScore < 0.7 ? 'text-amber' : 'text-teal'}`}>
-                        {Math.round(incident.trustScore * 100)}%
+                      <span
+                        className={`metric-value font-mono ${
+                          incident.trustScore === null || incident.trustScore === undefined
+                            ? 'text-teal'
+                            : incident.trustScore < 0.7
+                            ? 'text-amber'
+                            : 'text-teal'
+                        }`}
+                      >
+                        {incident.trustScore !== null && incident.trustScore !== undefined
+                          ? `${Math.round(incident.trustScore * 100)}%`
+                          : 'Local Device'}
                       </span>
                     </div>
+
+                    {/* People Affected if reported */}
+                    {incident.peopleAffected !== null && incident.peopleAffected !== undefined && (
+                      <div className="metric-pill" title="Reported people affected">
+                        <span className="metric-label">Affected:</span>
+                        <span className="metric-value font-mono">{incident.peopleAffected}</span>
+                      </div>
+                    )}
 
                     {/* Witnesses */}
                     <div className={`metric-pill ${isSingleWitnessCritical ? 'witness-warning' : ''}`} title="Simulated independent witness reports">

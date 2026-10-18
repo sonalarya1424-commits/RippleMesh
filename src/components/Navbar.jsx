@@ -1,7 +1,7 @@
 import React from 'react';
 import { Icon } from './Icons';
 
-export function Navbar({ onSimulateDistress, onResetData, currentView }) {
+export function Navbar({ onSimulateDistress, onResetData, onOpenSubmitModal, currentView }) {
   const getViewTitle = () => {
     switch (currentView) {
       case 'dashboard':
@@ -42,6 +42,16 @@ export function Navbar({ onSimulateDistress, onResetData, currentView }) {
           <span className="pill-text font-mono">DEMO SIMULATION • NO BACKEND CONNECTED</span>
         </div>
 
+        {/* Primary Action: Submit Emergency Report */}
+        <button
+          className="btn btn-primary btn-sm btn-submit-report"
+          onClick={onOpenSubmitModal}
+          title="Submit a new emergency disaster incident report"
+        >
+          <Icon name="plus" size={14} />
+          Submit Report
+        </button>
+
         {/* Action Buttons */}
         <button
           className="btn btn-outline btn-sm"
@@ -49,7 +59,7 @@ export function Navbar({ onSimulateDistress, onResetData, currentView }) {
           title="Simulate receiving a new mesh distress packet"
         >
           <Icon name="sparkles" size={14} color="var(--teal-400)" />
-          + Simulate Distress Burst
+          + Distress Burst
         </button>
 
         <button
